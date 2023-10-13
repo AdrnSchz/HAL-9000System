@@ -43,18 +43,23 @@ void readLine(int source, char** string) {
 }
 
 void checkName(char** name) {
-    int i = 0;
+    int i = 0, j = 0, num = 0;
 
     while ((*name)[i] != '\0') {
         if ((*name)[i] == '&') {
-            for (int j = i; j < (strlen(*name) - 1); j++) {
+            j = i;
+            while ((*name)[j] != '\0') {
                 (*name)[j] = (*name)[j + 1];
+                j++;
             }
-            *name = (char*) realloc(*name, sizeof(char) * (strlen(*name) - 1));
+            num++;
+            //*name = (char*) realloc(*name, sizeof(char) * (strlen(*name) - 1));
             i--;
         }
         i++;
     }
+
+    *name = (char*) realloc(*name, sizeof(char) * i);
     
 }
 

@@ -34,6 +34,9 @@ void sig_handler(int sigsum) {
             free(config.user);
             free(config.files_path);
             free(config.ip);
+            config.user = NULL;
+            config.files_path = NULL;
+            config.ip = NULL;
             exit(0);
             break;
     }
@@ -50,19 +53,27 @@ int main(int argc, char *argv[]) {
 
     readConfig(argv[1]);
     checkName(&config.user);
-    testBowConf(config);
-
-    asprintf(&buffer, "%s user initialized\n", config.user);
+    asprintf(&buffer, "\n%s user initialized\n", config.user);
     printF(buffer);
     free(buffer);
-    /*while(1) {
+    testBowConf(config);
+
+    asprintf(&buffer, "\n%s user initialized\n", config.user);
+    printF(buffer);
+    free(buffer);
+    buffer = NULL;
+    while(1) {
         printF("$ ");
         readLine(0, &buffer);
         capitalize(&buffer);
 
-    }*/
+    }
     free(config.user);
     free(config.files_path);
     free(config.ip);
+    config.user = NULL;
+    config.files_path = NULL;
+    config.ip = NULL;
+
     return 0;
 }
