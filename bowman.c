@@ -1,24 +1,6 @@
-#define _GNU_SOURCE
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <time.h>
+#include "functions.h"
 
-#define printF(x) write(1, x, strlen(x))
-
-typedef struct {
-    char* user;
-    char* download_path;
-    char* ip;
-    int port;
-} Config;
-
-Config config;
+User_conf config;
 
 void sig_handler(int sigsum) {
 
