@@ -25,7 +25,7 @@ typedef struct {
 
 typedef struct {
     char* user;
-    char* path;
+    char* files_path;
     char* ip;
     int port;
 } User_conf;
