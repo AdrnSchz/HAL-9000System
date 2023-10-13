@@ -34,4 +34,8 @@ void readNum(int source, int* num);
 
 void readLine(int source, char** string);
 
+void checkName(char** name);
+
+void capitalize(char** string);
+
 #endif

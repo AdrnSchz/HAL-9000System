@@ -41,3 +41,30 @@ void readLine(int source, char** string) {
 
     *string = buffer;
 }
+
+void checkName(char** name) {
+    int i = 0;
+
+    while ((*name)[i] != '\0') {
+        if ((*name)[i] == '&') {
+            for (int j = i; j < (strlen(*name) - 1); j++) {
+                (*name)[j] = (*name)[j + 1];
+            }
+            *name = (char*) realloc(*name, sizeof(char) * (strlen(*name) - 1));
+            i--;
+        }
+        i++;
+    }
+    
+}
+
+void capitalize(char** string) {
+    int i = 0;
+
+    while ((*string)[i] != '\0') {
+        if ((*string)[i] >= 'a' && (*string)[i] <= 'z') {
+            (*string)[i] -= 32;
+        }
+        i++;
+    }
+}

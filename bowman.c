@@ -40,20 +40,29 @@ void sig_handler(int sigsum) {
 }
 
 int main(int argc, char *argv[]) {
-    char reader[1];
+    char* buffer;
     signal(SIGINT, sig_handler);
 
     if (argc != 2) {
         printF("Usage: ./poole <config_file>\n");
         return -1;
     }
-    
+
     readConfig(argv[1]);
+    checkName(&config.user);
     testBowConf(config);
 
-    while(1) {
+    asprintf(&buffer, "%s user initialized\n", config.user);
+    printF(buffer);
+    free(buffer);
+    /*while(1) {
         printF("$ ");
-        read(0, reader, 1);
-    }
+        readLine(0, &buffer);
+        capitalize(&buffer);
+
+    }*/
+    free(config.user);
+    free(config.files_path);
+    free(config.ip);
     return 0;
 }
