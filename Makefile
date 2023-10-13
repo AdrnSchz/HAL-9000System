@@ -8,6 +8,5 @@ poole.o: poole.c
 
 demo: bowman.o poole.o
 	gcc -Wall -Wextra bowman.o -o bowman
-	gcc -Wall -Wextra poole.o -o poole
 clean:
 	rm -fr bowman poole *.o 
