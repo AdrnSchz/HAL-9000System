@@ -4,11 +4,14 @@ Server_conf config;
 
 void readConfig(char* file) {
     int fd_config;
+    char *buffer;
 
     fd_config = open(file, O_RDONLY);
 
     if (fd_config == -1) {
-        printF("Error opening config.dat\n");
+        asprintf(&buffer, "EROOR: %s not found.\n", file);
+        printF(buffer);
+        free(buffer);
         exit(-1);
     }
 
