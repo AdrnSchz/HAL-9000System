@@ -12,8 +12,8 @@
 #define printF(x) write(1, x, strlen(x))
 
 typedef struct {
-    char* name;
-    char* path;
+    char* user;
+    char* download_path;
     char* ip;
     int port;
 } Config;
@@ -25,8 +25,8 @@ void sig_handler(int sigsum) {
     switch(sigsum) {
         case SIGINT:
             printF("\nAborting...\n");
-            free(config.name);
-            free(config.path);
+            free(config.user);
+            free(config.download_path);
             free(config.ip);
             exit(0);
             break;
