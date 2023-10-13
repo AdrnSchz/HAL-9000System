@@ -38,4 +38,6 @@ void checkName(char** name);
 
 void capitalize(char** string);
 
+int checkCommand(char* buffer);
+
 #endif

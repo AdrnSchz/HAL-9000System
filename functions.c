@@ -73,3 +73,44 @@ void capitalize(char** string) {
         i++;
     }
 }
+
+int checkCommand(char* buffer) {
+    int i = 0, j, error, correct;
+    char commands[7][20] = {"CONNECT", "LOGOUT", "LIST SONGS", "LIST PLAYLIST", "DOWNLOAD", "CHECK DOWNLOADS", "CLEAR DOWNLOADS"};
+    //char* token = strtok(command, " ");
+    char* command = (char*) malloc(sizeof(char) * strlen(buffer));
+    strcpy(command, buffer);
+    capitalize(&command);
+
+    for (i = 0; i < 7; i++) {
+        error = 0;
+        correct = 0;
+        j = 0;
+        printf("%ld", strlen(commands[i]));
+        while (j < strlen(commands[i]) && j < strlen(command)) {
+            if (command[j] == commands[i][j]) {
+                correct++;
+                printF("correct\n");
+            }
+            else {
+                error++;
+            }
+            j++;
+        }
+
+        if (correct == strlen(commands[i]) && error >= 1 && i != 4) {
+            free(command);
+            command = NULL;
+            return 7;
+        }
+        else if (correct == strlen(commands[i])) {
+            free(command);
+            command = NULL;
+            return i;
+        }
+    }
+    
+    free(command);
+    command = NULL;
+    return -1;
+}

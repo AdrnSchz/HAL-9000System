@@ -53,9 +53,6 @@ int main(int argc, char *argv[]) {
 
     readConfig(argv[1]);
     checkName(&config.user);
-    asprintf(&buffer, "\n%s user initialized\n", config.user);
-    printF(buffer);
-    free(buffer);
     testBowConf(config);
 
     asprintf(&buffer, "\n%s user initialized\n", config.user);
@@ -65,12 +62,50 @@ int main(int argc, char *argv[]) {
     while(1) {
         printF("$ ");
         readLine(0, &buffer);
-        capitalize(&buffer);
+        switch (checkCommand(buffer)) {
+            case 0:
+                free(buffer);
+                buffer = NULL;
+                sprintf(buffer, "%s connected to HAL 9000 system, welcome music lover!\n", config.user);
+                printF(buffer);
+                break;
+            case 1:
+                printF("Thanks for using HAL 9000, see you soon, music lover!\n");
+                goto end;
+                break;
+            case 2:
+                printF("There are no songs\n");
+                break;
+            case 3:
+                printF("There are no playlists\n");
+                break;
+            case 4:
+                printF("There are no songs to download\n");
+                break;
+            case 5:
+                printF("There are no songs being downloaded\n");
+                break;
+            case 6:
+                printF("There are no downloads to clear\n");
+                break;
+            case 7:
+                printF("Unknown command.\n");
+                break;
+            default:
+                printF("ERROR: Please input a valid command.\n");
+                break;
+        }
 
+        free(buffer);
+        buffer = NULL;
     }
+
+    end:
+    free(buffer);
     free(config.user);
     free(config.files_path);
     free(config.ip);
+    buffer = NULL;
     config.user = NULL;
     config.files_path = NULL;
     config.ip = NULL;
