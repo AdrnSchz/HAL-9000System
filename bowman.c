@@ -24,7 +24,7 @@ void sig_handler(int sigsum) {
 
     switch(sigsum) {
         case SIGINT:
-            printF("Aborting\n");
+            printF("\nAborting...\n");
             free(config.name);
             free(config.path);
             free(config.ip);
@@ -34,8 +34,13 @@ void sig_handler(int sigsum) {
 }
 
 int main() {
-
+    char reader[1];
     signal(SIGINT, sig_handler);
+
+    while(1) {
+        printF("$ ");
+        read(0, reader, 1);
+    }
     
 
     return 0;
