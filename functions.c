@@ -79,6 +79,7 @@ int checkCommand(char* buffer) {
     char commands[7][20] = {"CONNECT", "LOGOUT", "LIST SONGS", "LIST PLAYLIST", "DOWNLOAD", "CHECK DOWNLOADS", "CLEAR DOWNLOADS"};
     //char* token = strtok(command, " ");
     char* command = (char*) malloc(sizeof(char) * strlen(buffer));
+    
     strcpy(command, buffer);
     capitalize(&command);
 

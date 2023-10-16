@@ -66,8 +66,12 @@ int main(int argc, char *argv[]) {
             case 0:
                 free(buffer);
                 buffer = NULL;
-                sprintf(buffer, "%s connected to HAL 9000 system, welcome music lover!\n", config.user);
+
+                asprintf(&buffer,  "%s connected to HAL 9000 system, welcome music lover!\n", config.user);
                 printF(buffer);
+                
+                //sprintf(buffer, "%s connected to HAL 9000 system, welcome music lover!\n", config.user);
+                //printF(buffer);
                 break;
             case 1:
                 printF("Thanks for using HAL 9000, see you soon, music lover!\n");
