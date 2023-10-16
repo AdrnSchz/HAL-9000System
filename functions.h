@@ -14,6 +14,9 @@
 
 #define printF(x) write(1, x, strlen(x))
 
+#define C_RESET "\033[0m"
+#define C_RED "\033[31m"
+
 typedef struct {
     char* server;
     char* path;

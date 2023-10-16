@@ -90,10 +90,14 @@ int main(int argc, char *argv[]) {
                 printF("There are no downloads to clear\n");
                 break;
             case 7:
+                printF(C_RED);
                 printF("Unknown command.\n");
+                printF(C_RESET);
                 break;
             default:
+                printF(C_RED);
                 printF("ERROR: Please input a valid command.\n");
+                printF(C_RESET);
                 break;
         }
 
