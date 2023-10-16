@@ -87,11 +87,9 @@ int checkCommand(char* buffer) {
         error = 0;
         correct = 0;
         j = 0;
-        printf("%ld", strlen(commands[i]));
         while (j < strlen(commands[i]) && j < strlen(command)) {
             if (command[j] == commands[i][j]) {
                 correct++;
-                printF("correct\n");
             }
             else {
                 error++;
@@ -99,7 +97,7 @@ int checkCommand(char* buffer) {
             j++;
         }
 
-        if (correct == strlen(commands[i]) && error >= 1 && i != 4) {
+        if (correct == strlen(commands[i]) && strlen(commands[i]) != strlen(command) && i != 4) {
             free(command);
             command = NULL;
             return 7;
