@@ -16,6 +16,10 @@
 
 #define C_RESET "\033[0m"
 #define C_RED "\033[31m"
+#define C_GREEN "\033[32m"
+#define C_BOLDGREEN "\033[1m\033[32m"
+#define C_BOLDRED   "\033[1m\033[31m"
+#define BOLD    "\033[1m"
 
 typedef struct {
     char* server;

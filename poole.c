@@ -10,7 +10,7 @@ void readConfig(char* file) {
     fd_config = open(file, O_RDONLY);
 
     if (fd_config == -1) {
-        asprintf(&buffer, "EROOR: %s not found.\n", file);
+        asprintf(&buffer,C_BOLDRED "EROOR: %s not found.\n" C_RESET, file);
         printF(buffer);
         free(buffer);
         exit(-1);
@@ -29,13 +29,15 @@ void readConfig(char* file) {
 int main(int argc, char *argv[]) {
 
     if (argc != 2) {
+        printF(C_BOLDRED);
         printF("Usage: ./poole <config_file>\n");
+        printF(C_RESET);
         return -1;
     }
 
     else {
         readConfig(argv[1]);
-        testPooleConf(config);
+        //testPooleConf(config);
     }
 
     return 0;
