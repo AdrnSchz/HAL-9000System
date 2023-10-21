@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
 
     else {
         readConfig(argv[1]);
-        //testPooleConf(config);
+        testPooleConf(config);
     }
 
     return 0;

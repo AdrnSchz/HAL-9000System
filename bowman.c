@@ -55,60 +55,71 @@ int main(int argc, char *argv[]) {
 
     readConfig(argv[1]);
     checkName(&config.user);
-    //testBowConf(config);
 
     asprintf(&buffer, BOLD "\n%s user initialized\n" C_RESET, config.user);
     printF(buffer);
     free(buffer);
     buffer = NULL;
+
+    testBowConf(config);
+    
     while(1) {
         printF("$ ");
         readLine(0, &buffer);
         switch (checkCommand(buffer)) {
             case 0:
-                free(buffer);
-                buffer = NULL;
-
-                asprintf(&buffer, C_GREEN "%s connected to HAL 9000 system, welcome music lover!\n" C_RESET, config.user);
-                printF(buffer);
+                //free(buffer);
+                //buffer = NULL;
+                
+                printF(C_GREEN);
+                printF("OK\n");
+                printF(C_RESET);
+                //asprintf(&buffer, C_GREEN "%s connected to HAL 9000 system, welcome music lover!\n" C_RESET, config.user);
+                //printF(buffer);
                 break;
             case 1:
-                printF("Thanks for using HAL 9000, see you soon, music lover!\n");
+                
+                printF(C_GREEN);
+                printF("OK\n");
+                printF(C_RESET);
+                //printF("Thanks for using HAL 9000, see you soon, music lover!\n");
                 goto end;
                 break;
             case 2:
-                printF(C_RED);
-                printF("There are no songs\n");
+                printF(C_GREEN);
+                printF("OK\n");
                 printF(C_RESET);
                 break;
             case 3:
-                printF(C_RED);
-                printF("There are no playlists\n");
+                printF(C_GREEN);
+                printF("OK\n");
                 printF(C_RESET);
                 break;
             case 4:
-                printF(C_RED);
-                printF("There are no songs to download\n");
+                printF(C_GREEN);
+                printF("OK\n");
                 printF(C_RESET);
                 break;
             case 5:
-                printF(C_RED);
-                printF("There are no songs being downloaded\n");
+                printF(C_GREEN);
+                printF("OK\n");
                 printF(C_RESET);
                 break;
             case 6:
-                printF(C_RED);
-                printF("There are no downloads to clear\n");
+                printF(C_GREEN);
+                printF("OK\n");
                 printF(C_RESET);
                 break;
             case 7:
                 printF(C_BOLDRED);
-                printF("Unknown command.\n");
+                printF("KO\n");
+                //printF("Unknown command.\n");
                 printF(C_RESET);
                 break;
             default:
                 printF(C_BOLDRED);
-                printF("ERROR: Please input a valid command.\n");
+                printF("KO\n");
+                //printF("ERROR: Please input a valid command.\n");
                 printF(C_RESET);
                 break;
         }
