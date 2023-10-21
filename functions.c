@@ -73,6 +73,24 @@ void capitalize(char** string) {
     }
 }
 
+void removeWhiteSpaces(char** string) {
+    int i = 0, len = 0;
+    char* processed = (char*)malloc(sizeof(char) * (strlen(*string) + 1));
+
+    for (i = 0; (*string)[i] != '\0'; i++) {
+        if ((*string)[i] != ' ' || (i > 0 && (*string)[i - 1] != ' ')) {
+            processed[len] = (*string)[i];
+            len++;
+        }
+    }
+
+    processed[len] = '\0';
+
+    // Free the old string and assign the processed string
+    free(*string);
+    *string = processed;
+}
+
 int checkCommand(char* buffer) {
     int i = 0, j, error, correct;
     char commands[7][20] = {"CONNECT", "LOGOUT", "LIST SONGS", "LIST PLAYLIST", "DOWNLOAD", "CHECK DOWNLOADS", "CLEAR DOWNLOADS"};
@@ -81,7 +99,10 @@ int checkCommand(char* buffer) {
     
     strcpy(command, buffer);
     capitalize(&command);
-
+    printf("c1 = %s\n", command);
+    removeWhiteSpaces(&command);
+    printf("c2 = %s\n", command);
+    
     for (i = 0; i < 7; i++) {
         error = 0;
         correct = 0;
