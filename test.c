@@ -23,7 +23,7 @@ void testBowConf(User_conf config) {
 void testPooleConf(Server_conf config) {
     char* buffer;
 
-    asprintf(&buffer, "File read correctly:\n");
+    asprintf(&buffer, "\nFile read correctly:\n");
     printF(buffer);
     free(buffer);
     asprintf(&buffer, "Server - %s\n", config.server);
@@ -41,7 +41,7 @@ void testPooleConf(Server_conf config) {
     asprintf(&buffer, "User IP - %s\n", config.user_ip);
     printF(buffer);
     free(buffer);
-    asprintf(&buffer, "User port - %d\n", config.user_port);
+    asprintf(&buffer, "User port - %d\n\n", config.user_port);
     printF(buffer);
     free(buffer);
 }

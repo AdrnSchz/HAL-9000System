@@ -94,14 +94,11 @@ void removeWhiteSpaces(char** string) {
 int checkCommand(char* buffer) {
     int i = 0, j, error, correct;
     char commands[7][20] = {"CONNECT", "LOGOUT", "LIST SONGS", "LIST PLAYLIST", "DOWNLOAD", "CHECK DOWNLOADS", "CLEAR DOWNLOADS"};
-    //char* token = strtok(command, " ");
     char* command = (char*) malloc(sizeof(char) * strlen(buffer));
     
     strcpy(command, buffer);
     capitalize(&command);
-    printf("c1 = %s\n", command);
     removeWhiteSpaces(&command);
-    printf("c2 = %s\n", command);
     
     for (i = 0; i < 7; i++) {
         error = 0;
