@@ -114,12 +114,28 @@ int checkCommand(char* buffer) {
             j++;
         }
 
+        if (i == 4) {
+            error = -1;
+            j++;
+            while (j < strlen(command)) {
+                if (command[j] == ' ') {
+                    error = -1;
+                    break;
+                }
+
+                else {
+                    error = 0;
+                }
+                j++;
+            }
+        }
+
         if (correct == strlen(commands[i]) && strlen(commands[i]) != strlen(command) && i != 4) {
             free(command);
             command = NULL;
             return 7;
         }
-        else if (correct == strlen(commands[i])) {
+        else if (correct == strlen(commands[i]) && (i == 4 && error != -1)) {
             free(command);
             command = NULL;
             return i;
