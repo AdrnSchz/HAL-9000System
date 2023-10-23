@@ -135,6 +135,11 @@ int checkCommand(char* buffer) {
             command = NULL;
             return 7;
         }
+        else if (correct == strlen(commands[i]) && i != 4) {
+            free(command);
+            command = NULL;
+            return i;
+        }
         else if (correct == strlen(commands[i]) && (i == 4 && error != -1)) {
             free(command);
             command = NULL;
