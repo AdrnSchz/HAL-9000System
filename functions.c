@@ -151,3 +151,13 @@ int checkCommand(char* buffer) {
     command = NULL;
     return -1;
 }
+
+int checkPort(int port) {
+
+
+    if (port < 0 || port > 65535) {
+        return -1;
+    }
+
+    return 0;
+}

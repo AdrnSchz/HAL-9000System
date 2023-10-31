@@ -37,6 +37,13 @@ typedef struct {
     int port;
 } User_conf;
 
+typedef struct {
+    char* ip_poole;
+    int port_pooole;
+    char* ip_bow;
+    int port_bow;
+} Disc_conf;
+
 void readNum(int source, int* num);
 
 void readLine(int source, char** string);

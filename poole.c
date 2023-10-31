@@ -39,10 +39,27 @@ int main(int argc, char *argv[]) {
     else {
         readConfig(argv[1]);
         printF("Reading configuration file\n");
+
+        if (checkPort(config.discovery_port) == -1) {
+            printF(C_BOLDRED);
+            printF("ERROR: Invalid discovery port.\n");
+            printF(C_RESET);
+            return -1;
+        }
+
+        if (checkPort(config.user_port) == -1) {
+            printF(C_BOLDRED);
+            printF("ERROR: Invalid user port.\n");
+            printF(C_RESET);
+            return -1;
+        }
+
         asprintf(&buffer, "Conecting %s Server to the system...\n", config.server);
         printF(buffer);
         free(buffer);
         buffer = NULL;
+
+        
         
     }
 

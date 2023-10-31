@@ -61,7 +61,12 @@ int main(int argc, char *argv[]) {
     free(buffer);
     buffer = NULL;
 
-    testBowConf(config);
+    if (checkPort(config.port) == -1) {
+        printF(C_BOLDRED);
+        printF("ERROR: Invalid port.\n");
+        printF(C_RESET);
+        return -1;
+    }
     
     while(1) {
         printF("$ ");
