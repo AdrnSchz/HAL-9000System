@@ -1,8 +1,6 @@
 #include "functions.h"
 #include "test.h"
 
-
-
 Server_conf readConfig(char* file) {
     Server_conf config;
     int fd_config;
