@@ -16,7 +16,7 @@ Disc_conf readConfig(char* file) {
     }
 
     readLine(fd_config, &config.ip_poole);
-    readLine(fd_config, &config.port_poole);
+    readNum(fd_config, &config.port_poole);
     readLine(fd_config, &config.ip_bow);
     readNum(fd_config, &config.port_bow);
 
