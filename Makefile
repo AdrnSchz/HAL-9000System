@@ -22,7 +22,7 @@ poole: poole.o functions.o test.o
 	gcc -Wall -Wextra poole.o functions.o test.o -o poole
 
 discovery: discovery.o functions.o test.o
-	gcc -Wall -Wextra discovery.o functions.o test.o -o discovery
+	gcc -Wall -Wextra discovery.o functions.o test.o -o discovery 
 
 demo: bowman poole
 

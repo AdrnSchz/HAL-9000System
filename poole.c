@@ -1,9 +1,10 @@
 #include "functions.h"
 #include "test.h"
 
-Server_conf config;
 
-void readConfig(char* file) {
+
+Server_conf readConfig(char* file) {
+    Server_conf config;
     int fd_config;
     char *buffer;
 
@@ -24,10 +25,13 @@ void readConfig(char* file) {
     readNum(fd_config, &config.user_port);
 
     close(fd_config);
+
+    return config;
 }
 
 int main(int argc, char *argv[]) {
     char* buffer;
+    Server_conf config;
 
     if (argc != 2) {
         printF(C_BOLDRED);
@@ -37,7 +41,7 @@ int main(int argc, char *argv[]) {
     }
 
     else {
-        readConfig(argv[1]);
+        config = readConfig(argv[1]);
         printF("Reading configuration file\n");
 
         if (checkPort(config.discovery_port) == -1) {
@@ -59,7 +63,7 @@ int main(int argc, char *argv[]) {
         free(buffer);
         buffer = NULL;
 
-        
+
         
     }
 
