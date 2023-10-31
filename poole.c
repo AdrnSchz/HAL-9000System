@@ -61,10 +61,7 @@ int main(int argc, char *argv[]) {
         asprintf(&buffer, "Conecting %s Server to the system...\n", config.server);
         printF(buffer);
         free(buffer);
-        buffer = NULL;
-
-
-        
+        buffer = NULL; 
     }
 
     return 0;
