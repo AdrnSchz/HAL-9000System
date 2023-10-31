@@ -39,7 +39,7 @@ typedef struct {
 
 typedef struct {
     char* ip_poole;
-    int port_pooole;
+    int port_poole;
     char* ip_bow;
     int port_bow;
 } Disc_conf;
