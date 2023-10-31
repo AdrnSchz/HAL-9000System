@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/ioctl.h>
+#include <math.h>
+#include <sys/socket.h>
 
 #define printF(x) write(1, x, strlen(x))
 
