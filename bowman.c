@@ -1,24 +1,30 @@
-#define _GNU_SOURCE
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <time.h>
+#include "functions.h"
+#include "test.h"
 
-#define printF(x) write(1, x, strlen(x))
+User_conf config;
 
-typedef struct {
-    char* user;
-    char* download_path;
-    char* ip;
-    int port;
-} Config;
+void readConfig(char* file) {
+    int fd_config;
+    char *buffer;
 
-Config config;
+    fd_config = open(file, O_RDONLY);
+
+    if (fd_config == -1) {
+        asprintf(&buffer, C_BOLDRED "ERROR: %s not found.\n" C_RESET, file);
+        printF(buffer);
+        free(buffer);
+        exit(-1);
+    }
+
+    else {
+        readLine(fd_config, &config.user);
+        readLine(fd_config, &config.files_path);
+        readLine(fd_config, &config.ip);
+        readNum(fd_config, &config.port);
+
+        close(fd_config);
+    }
+}
 
 void sig_handler(int sigsum) {
 
@@ -26,22 +32,111 @@ void sig_handler(int sigsum) {
         case SIGINT:
             printF("\nAborting...\n");
             free(config.user);
-            free(config.download_path);
+            free(config.files_path);
             free(config.ip);
+            config.user = NULL;
+            config.files_path = NULL;
+            config.ip = NULL;
             exit(0);
             break;
     }
 }
 
-int main() {
-    char reader[1];
+int main(int argc, char *argv[]) {
+    char* buffer;
     signal(SIGINT, sig_handler);
 
+    if (argc != 2) {
+        printF(C_BOLDRED);
+        printF("Usage: ./bowman <config_file>\n");
+        printF(C_RESET);
+        return -1;
+    }
+
+    readConfig(argv[1]);
+    checkName(&config.user);
+
+    asprintf(&buffer, BOLD "\n%s user initialized\n" C_RESET, config.user);
+    printF(buffer);
+    free(buffer);
+    buffer = NULL;
+
+    testBowConf(config);
+    
     while(1) {
         printF("$ ");
-        read(0, reader, 1);
+        readLine(0, &buffer);
+        switch (checkCommand(buffer)) {
+            case 0:
+                //free(buffer);
+                //buffer = NULL;
+                
+                printF(C_GREEN);
+                printF("OK\n");
+                printF(C_RESET);
+                //asprintf(&buffer, C_GREEN "%s connected to HAL 9000 system, welcome music lover!\n" C_RESET, config.user);
+                //printF(buffer);
+                break;
+            case 1:
+                
+                printF(C_GREEN);
+                printF("OK\n");
+                printF(C_RESET);
+                //printF("Thanks for using HAL 9000, see you soon, music lover!\n");
+                goto end;
+                break;
+            case 2:
+                printF(C_GREEN);
+                printF("OK\n");
+                printF(C_RESET);
+                break;
+            case 3:
+                printF(C_GREEN);
+                printF("OK\n");
+                printF(C_RESET);
+                break;
+            case 4:
+                printF(C_GREEN);
+                printF("OK\n");
+                printF(C_RESET);
+                break;
+            case 5:
+                printF(C_GREEN);
+                printF("OK\n");
+                printF(C_RESET);
+                break;
+            case 6:
+                printF(C_GREEN);
+                printF("OK\n");
+                printF(C_RESET);
+                break;
+            case 7:
+                printF(C_BOLDRED);
+                printF("KO\n");
+                //printF("Unknown command.\n");
+                printF(C_RESET);
+                break;
+            default:
+                printF(C_BOLDRED);
+                printF("KO\n");
+                //printF("ERROR: Please input a valid command.\n");
+                printF(C_RESET);
+                break;
+        }
+
+        free(buffer);
+        buffer = NULL;
     }
-    
+
+    end:
+    free(buffer);
+    free(config.user);
+    free(config.files_path);
+    free(config.ip);
+    buffer = NULL;
+    config.user = NULL;
+    config.files_path = NULL;
+    config.ip = NULL;
 
     return 0;
 }
