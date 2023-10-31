@@ -12,11 +12,17 @@ bowman.o: bowman.c
 poole.o: poole.c
 	gcc -g -c poole.c -o poole.o
 
+discovery.o: discovery.c
+	gcc -g -c discovery.c -o discovery.o
+
 bowman: bowman.o functions.o test.o
 	gcc -Wall -Wextra bowman.o functions.o test.o -o bowman
 
 poole: poole.o functions.o test.o
 	gcc -Wall -Wextra poole.o functions.o test.o -o poole
+
+discovery: discovery.o functions.o test.o
+	gcc -Wall -Wextra discovery.o functions.o test.o -o discovery
 
 demo: bowman poole
 
