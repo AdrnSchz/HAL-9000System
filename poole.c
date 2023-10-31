@@ -27,6 +27,7 @@ void readConfig(char* file) {
 }
 
 int main(int argc, char *argv[]) {
+    char* buffer;
 
     if (argc != 2) {
         printF(C_BOLDRED);
@@ -37,7 +38,12 @@ int main(int argc, char *argv[]) {
 
     else {
         readConfig(argv[1]);
-        testPooleConf(config);
+        printF("Reading configuration file\n");
+        asprintf(&buffer, "Conecting %s Server to the system...\n", config.server);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+        
     }
 
     return 0;
