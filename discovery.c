@@ -28,21 +28,32 @@ Disc_conf readConfig(char* file) {
 int main(int argc, char *argv[]) {
     Disc_conf config;
 
-    config = readConfig(argv[1]);
+    
 
-    if (checkPort(config.port_poole) == -1) {
+    if (argc != 2) {
         printF(C_BOLDRED);
-        printF("ERROR: Invalid poole port.\n");
+        printF("Usage: ./discovery <config_file>\n");
         printF(C_RESET);
         return -1;
-    }
+    } 
+    
+    else { 
+        config = readConfig(argv[1]);
+        printF("Reading configuration file\n");
+        
+        if (checkPort(config.port_poole) == -1) {
+            printF(C_BOLDRED);
+            printF("ERROR: Invalid poole port.\n");
+            printF(C_RESET);
+            return -1;
+        }
 
-    if (checkPort(config.port_bow) == -1) {
-        printF(C_BOLDRED);
-        printF("ERROR: Invalid bow port.\n");
-        printF(C_RESET);
-        return -1;
+        if (checkPort(config.port_bow) == -1) {
+            printF(C_BOLDRED);
+            printF("ERROR: Invalid bow port.\n");
+            printF(C_RESET);
+            return -1;
+        }
     }
-
     return 0;
 }
