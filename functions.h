@@ -56,4 +56,6 @@ void removeWhiteSpaces(char** string);
 
 int checkCommand(char* buffer);
 
+int checkPort(int port);
+
 #endif
