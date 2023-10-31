@@ -24,7 +24,7 @@ poole: poole.o functions.o test.o
 discovery: discovery.o functions.o test.o
 	gcc -Wall -Wextra discovery.o functions.o test.o -o discovery 
 
-demo: bowman poole
+demo: bowman poole discovery
 
 clean:
 	rm -fr bowman poole functions *.o
