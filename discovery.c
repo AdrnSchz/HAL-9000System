@@ -55,15 +55,15 @@ int main(int argc, char *argv[]) {
     }
 
     sock_poole = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == -1) {
+    if (sock_poole == -1) {
         printF(C_BOLDRED);
         printF("Error creating socket\n");
         printF(C_RESET);
         return -1;
     }
 
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == -1) {
+    sock_bow = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_bow == -1) {
         printF(C_BOLDRED);
         printF("Error creating socket\n");
         printF(C_RESET);
