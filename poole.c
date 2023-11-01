@@ -27,7 +27,7 @@ Server_conf readConfig(char* file) {
     return config;
 }
 
-int configConection(int* sock, struct sockaddr_in* server) {
+int configConection(int* sock, struct sockaddr_in* server, Server_conf config) {
 
     if (checkPort(config.discovery_port) == -1 || checkPort(config.user_port) == -1) {
         printF(C_BOLDRED);
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
     config = readConfig(argv[1]);
     printF("Reading configuration file\n");
 
-    if (configConection(&sock, &server) == -1) {
+    if (configConection(&sock, &server, config) == -1) {
         return -1;
     }
 
@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    asprintf(&buffer, "109NEW_POOLE%s\n", config.user); // padding????
+    asprintf(&buffer, "109NEW_POOLE%s\n", config.server); // padding????
     write(sock, buffer, strlen(buffer));
     free(buffer);
     buffer = NULL;

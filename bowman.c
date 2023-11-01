@@ -71,7 +71,6 @@ int configConection(int* sock, struct sockaddr_in* server) {
 
 int main(int argc, char *argv[]) {
     char* buffer;
-    char iterator;
     int sock, connected = 0;
     struct sockaddr_in server;
     Header header;
@@ -134,7 +133,8 @@ int main(int argc, char *argv[]) {
                 if (header.type == '1' && strcmp(header.header, "CON_OK\n") == 0) {
                     close(sock);
                     getString(0, '&', header.data);
-                    server.sin_family.s_addr = inet_addr(getString(0, '&', header.data));
+                    server.sin_family = AF_INET;
+                    server.sin_addr.s_addr = inet_addr(getString(0, '&', header.data));
                     server.sin_port = htons(atoi(getString(0, '\n', header.data)));
 
                     if (connect(sock, (struct sockaddr *) &server, sizeof(server)) < 0) {

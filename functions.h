@@ -84,6 +84,6 @@ void sendError(int sock);
 
 Header readHeader(int sock);
 
-char* getString(int from, char until, char* string)
+char* getString(int from, char until, char* string);
 
 #endif

@@ -27,9 +27,9 @@ Disc_conf readConfig(char* file) {
 
 int main(int argc, char *argv[]) {
     Disc_conf config;
+    char* buffer;
     struct sockaddr_in server;
     int sock, pid, num_servers = 0, least_users = INT_MAX, pos;
-    char* buffer;
     char* server_type;
     Server* servers;
     Header header;
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
             break;
     }
     
-    /* bind and accept instead of connect???
+    // ***********************************************************bind and accept instead of connect???**********************************
     if (connect(sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
         printF(C_BOLDRED);
         asprintf(&buffer, "Error connecting to %s socket\n", server_type);
@@ -91,7 +91,6 @@ int main(int argc, char *argv[]) {
 
         return -1;
     }
-    */
 
     while (1) {
         header = readHeader(sock);
