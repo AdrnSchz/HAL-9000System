@@ -16,6 +16,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <limits.h>
 
 #define printF(x) write(1, x, strlen(x))
 
@@ -25,6 +26,8 @@
 #define C_BOLDGREEN "\033[1m\033[32m"
 #define C_BOLDRED   "\033[1m\033[31m"
 #define BOLD    "\033[1m"
+
+#define ERROR_FRAME "77UNKNOWN\n" // need to do padding
 
 typedef struct {
     char* server;
@@ -49,6 +52,20 @@ typedef struct {
     int port_bow;
 } Disc_conf;
 
+typedef struct {
+    char type;
+    char length[2];
+    char* header;
+    char* data;
+} Header;
+
+typedef struct {
+    char* name;
+    int num_users;
+    char* ip;
+    int port;
+} Server;
+
 void readNum(int source, int* num);
 
 void readLine(int source, char** string);
@@ -62,5 +79,11 @@ void removeWhiteSpaces(char** string);
 int checkCommand(char* buffer);
 
 int checkPort(int port);
+
+void sendError(int sock);
+
+Header readHeader(int sock);
+
+char* getString(int from, char until, char* string)
 
 #endif

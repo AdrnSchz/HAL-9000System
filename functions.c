@@ -154,10 +154,45 @@ int checkCommand(char* buffer) {
 
 int checkPort(int port) {
 
-
     if (port < 0 || port > 65535) {
         return -1;
     }
 
     return 0;
+}
+
+void sendError(int sock) {
+    //memset(buffer, 0, 256); preguntar q hace esto y q hace el bind y el accept
+
+    write(sock, ERROR_FRAME, strlen(ERROR_FRAME));
+}
+
+Header readHeader(int sock) {
+    Header header;
+    
+    read(sock, &header.type, sizeof(char));
+    read(sock, &header.length, sizeof(char) * 2);
+    for (int i = 0; i < atoi(header.length); i++) {
+        read(sock, &header.header[i], sizeof(char));
+    }
+    read(sock, &header.data, 256 - 3 - atoi(header.length));
+
+    return header;
+}
+
+char* getString(int from, char until, char* string) {
+    char* buffer;
+    int j = 0;
+
+    buffer = (char*) malloc(sizeof(char));
+
+    for (int i = from; string[i] != until; i++) {
+        buffer[j] = string[i];
+        buffer = (char*) realloc(buffer, sizeof(char) * (j + 1));
+        j++;
+    }
+
+    buffer[j] = '\0';
+    
+    return buffer;
 }
