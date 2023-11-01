@@ -14,6 +14,7 @@
 #include <sys/ioctl.h>
 #include <math.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 
 #define printF(x) write(1, x, strlen(x))
 
