@@ -38,6 +38,9 @@
 
 #define ERROR_FRAME "77UNKNOWN\n" // need to do padding
 
+/**
+ * Structure for storing server configuration data.
+*/
 typedef struct {
     char* server;
     char* path;
@@ -47,6 +50,9 @@ typedef struct {
     int user_port;
 } Server_conf;
 
+/**
+ * Structure for storing user configuration data.
+*/
 typedef struct {
     char* user;
     char* files_path;
@@ -54,6 +60,9 @@ typedef struct {
     int port;
 } User_conf;
 
+/**
+ * Structure for storing Discovery server configuration data.
+*/
 typedef struct {
     char* ip_poole;
     int port_poole;
@@ -61,6 +70,9 @@ typedef struct {
     int port_bow;
 } Disc_conf;
 
+/**
+ * Structure for storing a header.
+*/
 typedef struct {
     char type;
     char length[2];
@@ -68,6 +80,9 @@ typedef struct {
     char* data;
 } Header;
 
+/**
+ * Structure for storing a server.
+*/
 typedef struct {
     char* name;
     int num_users;
