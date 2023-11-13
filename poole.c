@@ -1,6 +1,29 @@
+/********************************************************************
+*
+* @Purpose: HAL 9000 System
+* @Author: Marc Escoté Llopis & Adrián Jorge Sánchez López
+*
+* - The main purpose of the code is to initialize and run the Poole server, 
+*   handling interactions with the Discovery server.
+*
+* - The Poole server reads its configuration from a file passed as command-line 
+*   parameter and establishes a connection with the Discovery server.
+*
+* - Upon successful registration with the Discovery server, the Poole server awaits 
+*   further instructions.
+*
+********************************************************************/
+
 #include "functions.h"
 #include "test.h"
 
+/********************************************************************
+ *
+ * @Purpose: Reads the configuration from a file and stores it in the Server_conf structure.
+ * @Parameters: file - The path to the configuration file.
+ * @Return: The Server_conf structure with the configuration file data.
+ *
+ ********************************************************************/
 Server_conf readConfig(char* file) {
     Server_conf config;
     int fd_config;
@@ -27,6 +50,15 @@ Server_conf readConfig(char* file) {
     return config;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Configures the connection to the Discovery server using the provided Server_conf data.
+ * @Parameters: sock: Pointer to the socket variable to store the created socket.
+ *              server: Pointer to the sockaddr_in structure to store server information.
+ *              config: The Server_conf structure with configuration data.
+ * @Return: 0 on success, -1 on failure.
+ *
+ ********************************************************************/
 int configConection(int* sock, struct sockaddr_in* server, Server_conf config) {
 
     if (checkPort(config.discovery_port) == -1 || checkPort(config.user_port) == -1) {
@@ -54,6 +86,14 @@ int configConection(int* sock, struct sockaddr_in* server, Server_conf config) {
     return 0;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Main function that initializes the Poole server.
+ * @Parameters: argc - The number of command-line arguments.
+ *              argv - An array of the command-line arguments.
+ * @Return: 0 if successful, -1 otherwise.
+ *
+ ********************************************************************/
 int main(int argc, char *argv[]) {
     char* buffer;
     struct sockaddr_in server;

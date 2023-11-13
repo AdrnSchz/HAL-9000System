@@ -1,5 +1,22 @@
+/********************************************************************
+ *
+ * @Purpose: HAL 9000 System - Common Functions
+ * @Author: Marc Escoté Llopis & Adrián Jorge Sánchez López
+ *
+ * - This file contains common functions shared among the project.
+ *
+ ********************************************************************/
+
 #include "functions.h"
 
+/********************************************************************
+ *
+ * @Purpose: Reads an integer from a file descriptor and stores it in the specified variable.
+ * @Parameters: source - File descriptor to read from.
+ *              num - Pointer to the variable where the integer will be stored.
+ * @Return: ---
+ *
+ ********************************************************************/
 void readNum(int source, int* num) {
     char *buffer;
     int i = 0;
@@ -22,6 +39,14 @@ void readNum(int source, int* num) {
     buffer = NULL;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Reads a line from a file descriptor and allocates memory to store the information.
+ * @Parameters: source - File descriptor to read from.
+ *              string - Pointer to a string pointer where the line will be stored.
+ * @Return: ---
+ *
+ ********************************************************************/
 void readLine(int source, char** string) {
     char* buffer;
     int i = 0;
@@ -42,6 +67,13 @@ void readLine(int source, char** string) {
     *string = buffer;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Checks and removes '&' characters from a user name.
+ * @Parameters: name - Pointer to the string containing the user name.
+ * @Return: ---
+ *
+ ********************************************************************/
 void checkName(char** name) {
     int i = 0, j = 0, num = 0;
 
@@ -62,6 +94,13 @@ void checkName(char** name) {
     
 }
 
+/********************************************************************
+ *
+ * @Purpose: Capitalizes all characters in a string.
+ * @Parameters: string - Pointer to the string to be capitalized.
+ * @Return: ---
+ *
+ ********************************************************************/
 void capitalize(char** string) {
     int i = 0;
 
@@ -73,6 +112,13 @@ void capitalize(char** string) {
     }
 }
 
+/********************************************************************
+ *
+ * @Purpose: Removes extra white spaces from a string, keeping only one space between words.
+ * @Parameters: string - Pointer to the string to be processed.
+ * @Return: ---
+ *
+ ********************************************************************/
 void removeWhiteSpaces(char** string) {
     int i = 0, len = 0;
     char* processed = (char*)malloc(sizeof(char) * (strlen(*string) + 1));
@@ -91,6 +137,13 @@ void removeWhiteSpaces(char** string) {
     *string = processed;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Checks if input entered in the command line corresponds to a valid command.
+ * @Parameters: buffer - The input buffer containing the command.
+ * @Return: The command index if valid, -1 otherwise.
+ *
+ ********************************************************************/
 int checkCommand(char* buffer) {
     int i = 0, j, error, correct;
     char commands[7][20] = {"CONNECT", "LOGOUT", "LIST SONGS", "LIST PLAYLISTS", "DOWNLOAD", "CHECK DOWNLOADS", "CLEAR DOWNLOADS"};
@@ -152,6 +205,13 @@ int checkCommand(char* buffer) {
     return -1;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Checks if a given port number is within the valid range.
+ * @Parameters: port - The port number to be checked.
+ * @Return: 0 if valid, -1 otherwise.
+ *
+ ********************************************************************/
 int checkPort(int port) {
 
     if (port < 0 || port > 65535) {
@@ -161,12 +221,26 @@ int checkPort(int port) {
     return 0;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Sends an error frame to the specified socket.
+ * @Parameters: sock - The socket file descriptor.
+ * @Return: ---
+ *
+ ********************************************************************/
 void sendError(int sock) {
     //memset(buffer, 0, 256); preguntar q hace esto y q hace el bind y el accept
 
     write(sock, ERROR_FRAME, strlen(ERROR_FRAME));
 }
 
+/********************************************************************
+ *
+ * @Purpose: Reads a header from a socket.
+ * @Parameters: sock - The socket file descriptor.
+ * @Return: The read header structure.
+ *
+ ********************************************************************/
 Header readHeader(int sock) {
     Header header;
     
@@ -180,6 +254,15 @@ Header readHeader(int sock) {
     return header;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Extracts a substring from a string based on specified indices.
+ * @Parameters: from - The starting index.
+ *              until - The ending character.
+ *              string - The source string.
+ * @Return: The extracted substring.
+ *
+ ********************************************************************/
 char* getString(int from, char until, char* string) {
     char* buffer;
     int j = 0;

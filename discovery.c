@@ -1,6 +1,33 @@
+/********************************************************************
+ *
+ * @Purpose: HAL 9000 System - Discovery Server
+ * @Authors: Marc Escoté Llopis & Adrián Jorge Sánchez López
+ *
+ * - The main purpose of the code is to initialize and run the Discovery server,
+ *   managing interactions with Poole and Bowman servers.
+ *
+ * - The Discovery server reads its configuration from a file passed as a command-line 
+ *   parameter, establishing socket connections with both Poole and Bowman servers.
+ *
+ * - The Discovery server differentiates between Poole and Bowman servers,
+ *   allocating resources accordingly and maintaining server information.
+ *
+ * - The server continuously listens for incoming frames, handling the registration
+ *   of new Poole servers and distributing the connected Bowman users.
+ *
+ ********************************************************************/
+
 #include "functions.h"
 #include "test.h"
 
+/********************************************************************
+ *
+ * @Purpose: Reads the configuration from a file and initializes the Disc_conf structure.
+ * @Parameters:
+ *    - file: The path to the configuration file.
+ * @Return: The Disc_conf structure with the configuration data.
+ *
+ ********************************************************************/
 Disc_conf readConfig(char* file) {
     Disc_conf config;
     int fd_config;
@@ -25,6 +52,14 @@ Disc_conf readConfig(char* file) {
     return config;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Main function of the Discovery server.
+ * @Parameters: argc - The number of command-line arguments.
+ *              argv - An array of the command-line arguments.
+ * @Return: 0 on success, -1 on failure.
+ *
+ ********************************************************************/
 int main(int argc, char *argv[]) {
     Disc_conf config;
     char* buffer;

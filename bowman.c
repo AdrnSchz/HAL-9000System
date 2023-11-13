@@ -1,8 +1,32 @@
+/********************************************************************
+ *
+ * @Purpose: HAL 9000 System - Bowman User
+ * @Authors: Marc Escoté Llopis & Adrián Jorge Sánchez López
+ *
+ * - The main purpose of the code is to initialize and run the Bowman user that
+ *   will connect to the the Discovery server to get a Poole server to connect to.
+ * 
+ * - The Bowman user reads its configuration from a file passed as a command-line parameter,
+ *   establishes a socket connection with the Discovery, and handles user interactions.
+ *
+ * - The user can input commands and receive responses from the system.
+ *
+ * - The code includes signal handling for program termination when receiving SIGINT.
+ *
+ ********************************************************************/
+
 #include "functions.h"
 #include "test.h"
 
 User_conf config;
 
+/********************************************************************
+*
+* @Purpose: Reads the configuration from a file and stores it in the User_conf structure.
+* @Parameters: file - The path to the configuration file.
+* @Return: ---
+*
+/********************************************************************/
 void readConfig(char* file) {
     int fd_config;
     char *buffer;
@@ -26,6 +50,13 @@ void readConfig(char* file) {
     }
 }
 
+/********************************************************************
+*
+* @Purpose: Handles the SIGINT signal for aborting the program.
+* @Parameters: sigsum - The signal number.
+* @Return: ---
+*
+/********************************************************************/
 void sig_handler(int sigsum) {
 
     switch(sigsum) {
@@ -42,6 +73,14 @@ void sig_handler(int sigsum) {
     }
 }
 
+/********************************************************************
+ *
+ * @Purpose: Establishes a socket connection with the server using the information from the 'config' structure.
+ * @Parameters: sock - A pointer to the socket variable.
+ *              server - A pointer to the server address structure.
+ * @Return: 0 if successful, -1 otherwise.
+ *
+ ********************************************************************/
 int configConection(int* sock, struct sockaddr_in* server) {
 
     if (checkPort(config.port) == -1) {
@@ -69,6 +108,14 @@ int configConection(int* sock, struct sockaddr_in* server) {
     return 0;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Main function that initializes the Bowman user and handles user interactions.
+ * @Parameters: argc - The number of command-line arguments.
+ *              argv - An array of the command-line arguments.
+ * @Return: 0 if successful, -1 otherwise.
+ *
+ ********************************************************************/
 int main(int argc, char *argv[]) {
     char* buffer;
     int sock, connected = 0;
