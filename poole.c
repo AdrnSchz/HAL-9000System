@@ -1,6 +1,6 @@
 /********************************************************************
 *
-* @Purpose: HAL 9000 System
+* @Purpose: HAL 9000 System - Poole Server
 * @Author: Marc Escoté Llopis & Adrián Jorge Sánchez López
 *
 * - The main purpose of the code is to initialize and run the Poole server, 
