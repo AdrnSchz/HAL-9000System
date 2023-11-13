@@ -23,8 +23,7 @@
 /********************************************************************
  *
  * @Purpose: Reads the configuration from a file and initializes the Disc_conf structure.
- * @Parameters:
- *    - file: The path to the configuration file.
+ * @Parameters: file - The path to the configuration file.
  * @Return: The Disc_conf structure with the configuration data.
  *
  ********************************************************************/
