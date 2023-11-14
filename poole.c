@@ -16,39 +16,7 @@
 
 #include "functions.h"
 #include "test.h"
-
-/********************************************************************
- *
- * @Purpose: Reads the configuration from a file and stores it in the Server_conf structure.
- * @Parameters: file - The path to the configuration file.
- * @Return: The Server_conf structure with the configuration file data.
- *
- ********************************************************************/
-Server_conf readConfig(char* file) {
-    Server_conf config;
-    int fd_config;
-    char *buffer;
-
-    fd_config = open(file, O_RDONLY);
-
-    if (fd_config == -1) {
-        asprintf(&buffer,C_BOLDRED "EROOR: %s not found.\n" C_RESET, file);
-        printF(buffer);
-        free(buffer);
-        exit(-1);
-    }
-
-    readLine(fd_config, &config.server);
-    readLine(fd_config, &config.path);
-    readLine(fd_config, &config.discovery_ip);
-    readNum(fd_config, &config.discovery_port);
-    readLine(fd_config, &config.user_ip);
-    readNum(fd_config, &config.user_port);
-
-    close(fd_config);
-
-    return config;
-}
+#include "configs.h"
 
 /********************************************************************
  *
@@ -108,7 +76,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    config = readConfig(argv[1]);
+    config = readConfigPol(argv[1]);
     printF("Reading configuration file\n");
 
     if (configConection(&sock, &server, config) == -1) {

@@ -19,37 +19,7 @@
 
 #include "functions.h"
 #include "test.h"
-
-/********************************************************************
- *
- * @Purpose: Reads the configuration from a file and initializes the Disc_conf structure.
- * @Parameters: file - The path to the configuration file.
- * @Return: The Disc_conf structure with the configuration data.
- *
- ********************************************************************/
-Disc_conf readConfig(char* file) {
-    Disc_conf config;
-    int fd_config;
-    char *buffer;
-
-    fd_config = open(file, O_RDONLY);
-
-    if (fd_config == -1) {
-        asprintf(&buffer,C_BOLDRED "EROOR: %s not found.\n" C_RESET, file);
-        printF(buffer);
-        free(buffer);
-        exit(-1);
-    }
-
-    readLine(fd_config, &config.ip_poole);
-    readNum(fd_config, &config.port_poole);
-    readLine(fd_config, &config.ip_bow);
-    readNum(fd_config, &config.port_bow);
-
-    close(fd_config);
-
-    return config;
-}
+#include "configs.h"
 
 /********************************************************************
  *
@@ -75,7 +45,7 @@ int main(int argc, char *argv[]) {
         return -1;
     } 
 
-    config = readConfig(argv[1]);
+    config = readConfigDis(argv[1]);
     printF("Reading configuration file\n");
 
     if (checkPort(config.port_poole) == -1 || checkPort(config.port_bow) == -1) {

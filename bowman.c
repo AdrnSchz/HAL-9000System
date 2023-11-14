@@ -17,38 +17,9 @@
 
 #include "functions.h"
 #include "test.h"
+#include "configs.h"
 
 User_conf config;
-
-/********************************************************************
-*
-* @Purpose: Reads the configuration from a file and stores it in the User_conf structure.
-* @Parameters: file - The path to the configuration file.
-* @Return: ---
-*
-/********************************************************************/
-void readConfig(char* file) {
-    int fd_config;
-    char *buffer;
-
-    fd_config = open(file, O_RDONLY);
-
-    if (fd_config == -1) {
-        asprintf(&buffer, C_BOLDRED "ERROR: %s not found.\n" C_RESET, file);
-        printF(buffer);
-        free(buffer);
-        exit(-1);
-    }
-
-    else {
-        readLine(fd_config, &config.user);
-        readLine(fd_config, &config.files_path);
-        readLine(fd_config, &config.ip);
-        readNum(fd_config, &config.port);
-
-        close(fd_config);
-    }
-}
 
 /********************************************************************
 *
@@ -56,7 +27,7 @@ void readConfig(char* file) {
 * @Parameters: sigsum - The signal number.
 * @Return: ---
 *
-/********************************************************************/
+*******************************************************************/
 void sig_handler(int sigsum) {
 
     switch(sigsum) {
@@ -129,8 +100,10 @@ int main(int argc, char *argv[]) {
         printF(C_RESET);
         return -1;
     }
-
-    readConfig(argv[1]);
+    
+    printF("Here yes\n");
+    config = readConfigBow(argv[1]);
+    printF("Here no\n");
     checkName(&config.user);
     
     if (configConection(&sock, &server) == -1) {
