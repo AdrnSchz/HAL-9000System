@@ -145,8 +145,8 @@ void removeWhiteSpaces(char** string) {
  *
  ********************************************************************/
 int checkCommand(char* buffer) {
-    size_t i = 0, j;
-    int error, correct;
+    size_t i = 0, j, correct;
+    int error;
     char commands[7][20] = {"CONNECT", "LOGOUT", "LIST SONGS", "LIST PLAYLISTS", "DOWNLOAD", "CHECK DOWNLOADS", "CLEAR DOWNLOADS"};
     char* command = (char*) malloc(sizeof(char) * strlen(buffer));
     
