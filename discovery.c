@@ -16,7 +16,6 @@
  *   of new Poole servers and distributing the connected Bowman users.
  *
  ********************************************************************/
-
 #include "functions.h"
 #include "test.h"
 #include "configs.h"
