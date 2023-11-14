@@ -48,10 +48,9 @@ void readNum(int source, int* num) {
  *
  ********************************************************************/
 void readLine(int source, char** string) {
-    char* buffer;
+    char* buffer = NULL;
     int i = 0;
 
-    free(*string);
     buffer = (char*) malloc(sizeof(char));
 
     read(source, &buffer[i], sizeof(char));
@@ -78,7 +77,7 @@ void checkName(char** name) {
     int i = 0, j = 0, num = 0;
 
     while ((*name)[i] != '\0') {
-        if ((*name)[i] == '&' || (*name)[i] == '\r') {
+        if ((*name)[i] == '&') {
             j = i;
             while ((*name)[j] != '\0') {
                 (*name)[j] = (*name)[j + 1];

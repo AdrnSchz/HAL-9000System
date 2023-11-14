@@ -88,7 +88,7 @@ int configConection(int* sock, struct sockaddr_in* server) {
  *
  ********************************************************************/
 int main(int argc, char *argv[]) {
-    char* buffer;
+    char* buffer = NULL;
     int sock, connected = 0;
     struct sockaddr_in server;
     Header header;
@@ -101,17 +101,17 @@ int main(int argc, char *argv[]) {
         return -1;
     }
     
-    printF("Here yes\n");
     config = readConfigBow(argv[1]);
-    printF("Here no\n");
     checkName(&config.user);
-    
+
     if (configConection(&sock, &server) == -1) {
         return -1;
     }
 
-    asprintf(&buffer, BOLD "\n%s user initialized\n" C_RESET, config.user);
+    asprintf(&buffer, "\n%s user initialized\n", config.user);
+    printF(BOLD);
     printF(buffer);
+    printF(C_RESET);
     free(buffer);
     buffer = NULL;
 
