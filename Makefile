@@ -30,4 +30,4 @@ discovery: discovery.o functions.o test.o configs.o
 demo: bowman poole discovery
 
 clean:
-	rm -fr bowman poole functions configs test *.o
+	rm -fr *.o

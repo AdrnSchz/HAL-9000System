@@ -83,10 +83,9 @@ int main(int argc, char *argv[]) {
             break;
     }
     
-    // ***********************************************************bind and accept instead of connect???**********************************
-    if (connect(sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
+    if (bind(sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
         printF(C_BOLDRED);
-        asprintf(&buffer, "Error connecting to %s socket\n", server_type);
+        asprintf(&buffer, "Error binding to %s socket\n", server_type);
         printF(buffer);
         printF(C_RESET);
         free(buffer);
@@ -95,7 +94,34 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    listen(sock, 5);
+    
     while (1) {
+
+        struct sockaddr_in c_addr;
+        socklen_t c_len = sizeof(c_addr);
+
+
+        int newsock = accept(sock, (struct sockaddr *) &c_addr, &c_len);
+
+        if (newsock < 0) {
+            printF(C_BOLDRED);
+            asprintf(&buffer, "Error accepting %s socket connection\n", server_type);
+            printF(buffer);
+            printF(C_RESET);
+            free(buffer);
+            buffer = NULL;
+
+            return -1;
+        }
+
+        printF(C_GREEN);
+        asprintf(&buffer, "New connection from %s:%hu\n", inet_ntoa (c_addr.sin_addr), ntohs (c_addr.sin_port));
+        printF(buffer);
+        printF(C_RESET);
+        free(buffer);
+        buffer = NULL;
+
         header = readHeader(sock);
 
         if (header.type == '1') {
