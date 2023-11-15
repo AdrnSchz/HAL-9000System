@@ -89,7 +89,8 @@ void checkName(char** name) {
         i++;
     }
 
-    *name = (char*) realloc(*name, sizeof(char) * i);
+    *name = (char*) realloc(*name, sizeof(char) * (i + 1));
+    (*name)[i] = '\0';
     
 }
 
