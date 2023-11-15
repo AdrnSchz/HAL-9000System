@@ -20,6 +20,22 @@
 #include "test.h"
 #include "configs.h"
 
+void* pooleConection(void *arg) {
+    char* buffer = NULL;
+    Disc_conf* config = (Disc_conf*) arg;
+    struct sockaddr_in server;
+
+    server = configConnection(config.ip_poole, config.port_poole);
+}
+
+void* bowmanConection(void *arg) {
+    char* buffer = NULL;
+    Disc_conf* config = (Disc_conf*) arg;
+    struct sockaddr_in server;
+
+    server = configConnection(config.ip_bow, config.port_bow);
+}
+
 /********************************************************************
  *
  * @Purpose: Main function of the Discovery server.
@@ -64,6 +80,17 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    /**************************************************************************/
+    pthread_t threads[2];
+    
+    if (pthread_create(&threads[0], NULL, pooleConection, &config) != 0 || pthread_create(&threads[1], NULL, bowmanConection, &config) != 0) {
+            asprintf(&buffer, RED "Error creating the poole or bowman thread\n" RESET);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+            return -1;
+    }
+    /**************************************************************************/
     pid = fork();
     switch (pid) {
         case -1:
@@ -81,7 +108,7 @@ int main(int argc, char *argv[]) {
             server.sin_port = htons(config.port_poole);
             asprintf(&server_type, "poole");
             break;
-    }
+    }  
     
     if (bind(sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
         printF(C_BOLDRED);
