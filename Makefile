@@ -25,10 +25,10 @@ bowman: bowman.o functions.o test.o configs.o connections.o
 	gcc -Wall -Wextra bowman.o functions.o test.o configs.o connections.o -o bowman
 
 poole: poole.o functions.o test.o configs.o connections.o
-	gcc -Wall -Wextra poole.o functions.o test.o configs.o connections.o -o poole
+	gcc -Wall -Wextra -pthread poole.o functions.o test.o configs.o connections.o -o poole
 
 discovery: discovery.o functions.o test.o configs.o connections.o
-	gcc -Wall -Wextra discovery.o functions.o test.o configs.o connections.o -o discovery 
+	gcc -Wall -Wextra -pthread discovery.o functions.o test.o configs.o connections.o -o discovery 
 
 demo: bowman poole discovery
 

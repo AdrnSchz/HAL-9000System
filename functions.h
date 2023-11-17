@@ -11,6 +11,8 @@
 #define _FUNCTIONS_H_
 
 #define _GNU_SOURCE
+#define _XOPEN_SOURCE 500 //threads
+#define _POSIX_C_SOURCE 1 //threads
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
@@ -26,6 +28,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <limits.h>
+#include <pthread.h>
+#include <sys/mman.h>
 
 #define printF(x) write(1, x, strlen(x))
 
@@ -35,28 +39,6 @@
 #define C_BOLDGREEN "\033[1m\033[32m"
 #define C_BOLDRED   "\033[1m\033[31m"
 #define BOLD    "\033[1m"
-
-#define ERROR_FRAME "77UNKNOWN\n" // need to do padding
-
-/**
- * Structure for storing a header.
-*/
-typedef struct {
-    char type;
-    char length[2];
-    char* header;
-    char* data;
-} Header;
-
-/**
- * Structure for storing a server.
-*/
-typedef struct {
-    char* name;
-    int num_users;
-    char* ip;
-    int port;
-} Server;
 
 /********************************************************************
  *
@@ -113,33 +95,6 @@ void removeWhiteSpaces(char** string);
  *
  ********************************************************************/
 int checkCommand(char* buffer);
-
-/********************************************************************
- *
- * @Purpose: Checks if a given port number is within the valid range.
- * @Parameters: port - The port number to be checked.
- * @Return: 0 if valid, -1 otherwise.
- *
- ********************************************************************/
-int checkPort(int port);
-
-/********************************************************************
- *
- * @Purpose: Sends an error frame to the specified socket.
- * @Parameters: sock - The socket file descriptor.
- * @Return: ---
- *
- ********************************************************************/
-void sendError(int sock);
-
-/********************************************************************
- *
- * @Purpose: Reads a header from a socket.
- * @Parameters: sock - The socket file descriptor.
- * @Return: The read header structure.
- *
- ********************************************************************/
-Header readHeader(int sock);
 
 /********************************************************************
  *

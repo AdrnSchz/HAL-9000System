@@ -13,44 +13,71 @@
 *   further instructions.
 *
 ********************************************************************/
-
 #include "functions.h"
 #include "test.h"
 #include "configs.h"
+#include "connections.h"
 
-/********************************************************************
- *
- * @Purpose: Configures the connection to the Discovery server using the provided Server_conf data.
- * @Parameters: sock: Pointer to the socket variable to store the created socket.
- *              server: Pointer to the sockaddr_in structure to store server information.
- *              config: The Server_conf structure with configuration data.
- * @Return: 0 on success, -1 on failure.
- *
- ********************************************************************/
-int configConection(int* sock, struct sockaddr_in* server, Server_conf config) {
+void* bowmanHandler(void *arg) {
+    int sock = *(int*) arg;
+    char* buffer = NULL;
 
-    if (checkPort(config.discovery_port) == -1 || checkPort(config.user_port) == -1) {
-        printF(C_BOLDRED);
-        printF("ERROR: Invalid port.\n");
-        printF(C_RESET);
+    asprintf(&buffer, "connectionHandler from poole %d", sock);
+    printF(buffer);
+    free(buffer);
+    buffer = NULL;
 
-        return -1;
+    return NULL;
+}
+
+static int acceptConnections(int sock) {
+    char* buffer = NULL;
+    int num_threads = 0;
+    pthread_t* threads = NULL;
+
+    printF("\nWaiting for connections...\n");
+    
+    while (1) {
+        struct sockaddr_in client;
+        socklen_t c_len = sizeof(client);
+
+        int newsock = accept(sock, (struct sockaddr *) &client, &c_len);
+
+        if (newsock < 0) {
+            asprintf(&buffer, "%sError accepting socket connection\n%s", C_BOLDRED, C_RESET);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+
+            return -1;
+        }
+        
+        num_threads++;
+        threads = (pthread_t*) realloc(threads, num_threads * sizeof(pthread_t));
+    
+        if (pthread_create(&threads[0], NULL, bowmanHandler, &newsock) != 0) {
+            asprintf(&buffer,  "%sError creating the poole or bowman thread\n%s", C_BOLDRED, C_RESET);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+            
+            return -1;
+        }
+
     }
 
-    *sock = socket(AF_INET, SOCK_STREAM, 0);
+    for (int i = 0; i < num_threads; i++) {
+        if (pthread_join(threads[i], NULL) != 0) {
+            asprintf(&buffer, "%sError synchronizing threads\n%s", C_BOLDRED, C_RESET);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
 
-    if (*sock == -1) {
-        printF(C_BOLDRED);
-        printF("Error creating socket\n");
-        printF(C_RESET);
-
-        return -1;
+            return -1;
+        }
     }
 
-    server->sin_family = AF_INET;
-    server->sin_addr.s_addr = inet_addr(config.discovery_ip);
-    server->sin_port = htons(config.discovery_port);
-
+    close (sock);
     return 0;
 }
 
@@ -66,8 +93,9 @@ int main(int argc, char *argv[]) {
     char* buffer;
     struct sockaddr_in server;
     int sock;
+    //size_t i = 0;
     Server_conf config;
-    Header header;
+    //Header header;
 
     if (argc != 2) {
         printF(C_BOLDRED);
@@ -79,10 +107,27 @@ int main(int argc, char *argv[]) {
     config = readConfigPol(argv[1]);
     printF("Reading configuration file\n");
 
-    if (configConection(&sock, &server, config) == -1) {
+
+    if (checkPort(config.discovery_port) == -1 || checkPort(config.user_port) == -1) {
+        printF(C_BOLDRED);
+        printF("ERROR: Invalid port.\n");
+        printF(C_RESET);
+
         return -1;
     }
 
+    server = configServer(config.discovery_ip, config.discovery_port);
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (sock == -1) {
+        printF(C_BOLDRED);
+        printF("Error creating socket\n");
+        printF(C_RESET);
+
+        return -1;
+    }
+    
     asprintf(&buffer, "Conecting %s Server to the system...\n", config.server);
     printF(buffer);
     free(buffer);
@@ -96,23 +141,29 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    asprintf(&buffer, "109NEW_POOLE%s\n", config.server); // padding????
-    write(sock, buffer, strlen(buffer));
-    free(buffer);
-    buffer = NULL;
+    asprintf(&buffer, T1_POOLE, config.server, config.user_ip, config.user_port);
+    buffer = sendFrame(buffer, sock);
 
-    header = readHeader(sock);
+    Header header = readHeader(sock);
 
-    if (header.type == '1' && strcmp(header.header, "CON_OK\n") == 0) {
-        close(sock);
+    if (header.type == '1' && strcmp(header.header, "CON_OK") == 0) {
+        //close(sock); //como cerrarlo
+
+        server = configServer(config.user_ip, config.user_port);
+        sock = socket(AF_INET, SOCK_STREAM, 0);
         
-        //bind????
-        //accept????
+        if (openConnection(sock, server, "bowman") == -1) {
+            return -1;
+        }
 
         asprintf(&buffer, C_GREEN "Connected to HAL 9000 System, ready to listen to Bowmans petitions\n" C_RESET);
         printF(buffer);
         free(buffer);
         buffer = NULL;
+
+        if (acceptConnections(sock) == -1) {
+            return -1;
+        }
     }
     else {
         printF(C_BOLDRED);
@@ -124,7 +175,7 @@ int main(int argc, char *argv[]) {
     }
 
     printF("Waiting for conections...");
-    
+/*    
     while (1) {
         header = readHeader(sock);
 
@@ -146,6 +197,6 @@ int main(int argc, char *argv[]) {
             break;
         }
     }
-    
+  */  
     return 0;
 }

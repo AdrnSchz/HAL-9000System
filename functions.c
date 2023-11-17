@@ -208,55 +208,6 @@ int checkCommand(char* buffer) {
 
 /********************************************************************
  *
- * @Purpose: Checks if a given port number is within the valid range.
- * @Parameters: port - The port number to be checked.
- * @Return: 0 if valid, -1 otherwise.
- *
- ********************************************************************/
-int checkPort(int port) {
-
-    if (port < 0 || port > 65535) {
-        return -1;
-    }
-
-    return 0;
-}
-
-/********************************************************************
- *
- * @Purpose: Sends an error frame to the specified socket.
- * @Parameters: sock - The socket file descriptor.
- * @Return: ---
- *
- ********************************************************************/
-void sendError(int sock) {
-    //memset(buffer, 0, 256); preguntar q hace esto y q hace el bind y el accept
-
-    write(sock, ERROR_FRAME, strlen(ERROR_FRAME));
-}
-
-/********************************************************************
- *
- * @Purpose: Reads a header from a socket.
- * @Parameters: sock - The socket file descriptor.
- * @Return: The read header structure.
- *
- ********************************************************************/
-Header readHeader(int sock) {
-    Header header;
-    
-    read(sock, &header.type, sizeof(char));
-    read(sock, &header.length, sizeof(char) * 2);
-    for (int i = 0; i < atoi(header.length); i++) {
-        read(sock, &header.header[i], sizeof(char));
-    }
-    read(sock, &header.data, 256 - 3 - atoi(header.length));
-
-    return header;
-}
-
-/********************************************************************
- *
  * @Purpose: Extracts a substring from a string based on specified indices.
  * @Parameters: from - The starting index.
  *              until - The ending character.
@@ -275,7 +226,6 @@ char* getString(int from, char until, char* string) {
         buffer = (char*) realloc(buffer, sizeof(char) * (j + 1));
         j++;
     }
-
     buffer[j] = '\0';
     
     return buffer;
