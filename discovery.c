@@ -22,84 +22,82 @@
 #include "connections.h"
 
 Server* servers;
-int* num_servers;
+int* clients_fd;
+int num_servers = 0, num_clients = 0;
 
-void* connectionHandler(void *arg) {
+void connectionHandler(int sock) {
     Header header;
-    int sock = *(int*) arg;
     int least_users = INT_MAX, pos;
     char* buffer = NULL;
 
+    printF("Waiting for frames... \n");
+    header = readHeader(sock);
+    printF("Received header\n");
 
-    while (1) {
-        printF("Waiting for frames... \n");
-        header = readHeader(sock);
-        printF("Received header\n");
+    if (header.type == '1') {
+        if (strcmp(header.header, "NEW_POOLE") == 0) {
+            num_servers++;
+            servers = realloc(servers, num_servers * sizeof(Server));
+            servers[num_servers - 1].name = getString(0, '&', header.data);
+            servers[num_servers - 1].ip = getString(1 + strlen(servers[num_servers - 1].name), '&', header.data);
+            servers[num_servers - 1].port = atoi(getString(2 + strlen(servers[num_servers - 1].name) + strlen(servers[num_servers - 1].ip), '\0', header.data));
+            servers[num_servers - 1].num_users = 0;
 
-        if (header.type == '1') {
-            if (strcmp(header.header, "NEW_POOLE") == 0) {
-                *num_servers = *num_servers + 1;
-                servers = realloc(servers, *num_servers * sizeof(Server));
-                servers[*num_servers - 1].name = getString(0, '&', header.data);
-                servers[*num_servers - 1].ip = getString(1 + strlen(servers[*num_servers - 1].name), '&', header.data);
-                servers[*num_servers - 1].port = atoi(getString(2 + strlen(servers[*num_servers - 1].name) + strlen(servers[*num_servers - 1].ip), '\0', header.data));
-                servers[*num_servers - 1].num_users = 0;
+            asprintf(&buffer ,"New poole server registered: %s - IP: %s - Port: %d\n", servers[num_servers - 1].name, servers[num_servers - 1].ip, servers[num_servers - 1].port);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+            
+            asprintf(&buffer, T1_OK);
+            buffer = sendFrame(buffer, sock);
+        }
+        else if (strcmp(header.header, "NEW_BOWMAN") == 0) {
+            least_users = INT_MAX;
+            asprintf(&buffer, "num servers: %d\n", num_servers);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
 
-                asprintf(&buffer ,"New poole server registered: %s - IP: %s - Port: %d\n", servers[*num_servers - 1].name, servers[*num_servers - 1].ip, servers[*num_servers - 1].port);
-                printF(buffer);
-                free(buffer);
-                buffer = NULL;
-                
-                asprintf(&buffer, T1_OK);
-                buffer = sendFrame(buffer, sock);
-            }
-            else if (strcmp(header.header, "NEW_BOWMAN") == 0) {
-                least_users = INT_MAX;
-                asprintf(&buffer, "num servers: %d\n", *num_servers);
-                printF(buffer);
-                free(buffer);
-                buffer = NULL;
-                
-                if (*num_servers == 0) {
-                    asprintf(&buffer, T1_KO);
-                    buffer = sendFrame(buffer, sock);
-                    continue;
-                }
-                for (int i = 0; i < *num_servers; i++) {
-                    if (servers[i].num_users == 0) {
-                        pos = i;
-                        break;
-                    }
-                    else if (least_users > servers[i].num_users) {
-                        least_users = servers[i].num_users;
-                        pos = i;
-                    }
-                }
-
-                servers[pos].num_users++;
-                printF("1\n");
-                servers[pos].users = realloc(servers[pos].users, servers[pos].num_users * sizeof(char*));
-                printF("2\n");
-                servers[pos].users[servers[pos].num_users - 1] = getString(0, '\0', header.data);
-                printF("3\n");
-                
-                asprintf(&buffer, T1_OK_BOW, servers[pos].name, servers[pos].ip, servers[pos].port);
-                buffer = sendFrame(buffer, sock);
-            }
-            else {
+            if (num_servers == 0) {
                 asprintf(&buffer, T1_KO);
                 buffer = sendFrame(buffer, sock);
+                return;
             }
-        }
-        else if (header.type == '7') {
-            printF(C_BOLDRED);
-            printF("Sent wrong frame\n");
-            printF(C_RESET);
+
+            for (int i = 0; i < num_servers; i++) {
+                if (servers[i].num_users == 0) {
+                    printF("1.1\n");
+                    pos = i;
+                    break;
+                }
+                else if (least_users > servers[i].num_users) {
+                    printF("1.2\n");
+                    least_users = servers[i].num_users;
+                    pos = i;
+                }
+            }
+            servers[pos].num_users++;
+            servers[pos].users = realloc(servers[pos].users, servers[pos].num_users * sizeof(char*));
+            printF("2\n");
+            servers[pos].users[servers[pos].num_users - 1] = getString(0, '\0', header.data);
+            printF("3\n");
+            
+            asprintf(&buffer, T1_OK_BOW, servers[pos].name, servers[pos].ip, servers[pos].port);
+            buffer = sendFrame(buffer, sock);
         }
         else {
-            printF("Wrong frame\n");
-            sendError(sock);
+            asprintf(&buffer, T1_KO);
+            buffer = sendFrame(buffer, sock);
         }
+    }
+    else if (header.type == '7') {
+        printF(C_BOLDRED);
+        printF("Sent wrong frame\n");
+        printF(C_RESET);
+    }
+    else {
+        printF("Wrong frame\n");
+        sendError(sock);
     }
 }
 
@@ -113,19 +111,17 @@ void* connectionHandler(void *arg) {
  ********************************************************************/
 int main(int argc, char *argv[]) {
     Disc_conf config;
-    char* buffer;
-    struct sockaddr_in server;
-    int sock, pid;
-    char* server_type;
-    num_servers = mmap(NULL, sizeof *num_servers, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    *num_servers = 0;
+    fd_set readfds;
+    struct sockaddr_in server_p, server_b;
+    int bowman_sock, poole_sock;
+    clients_fd = (int*) malloc(sizeof(int));
 
     if (argc != 2) {
         printF(C_BOLDRED);
         printF("Usage: ./discovery <config_file>\n");
         printF(C_RESET);
         return -1;
-    } 
+    }
 
     config = readConfigDis(argv[1]);
     printF("Reading configuration file\n");
@@ -137,24 +133,13 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    pid = fork();
-    switch (pid) {
-        case -1:
-            printF(" ---- Error on fork ----\n");
-            break;
-        case 0:
-            server = configServer(config.ip_bow, config.port_bow);
-            asprintf(&server_type, "bowman");
-            break;
-        default:
-            server = configServer(config.ip_poole, config.port_poole);
-            asprintf(&server_type, "poole");
-            break;
-    }  
+    server_b = configServer(config.ip_bow, config.port_bow);
+    server_p = configServer(config.ip_poole, config.port_poole);  
     
-    sock = socket(AF_INET, SOCK_STREAM, 0);
+    poole_sock = socket(AF_INET, SOCK_STREAM, 0);
+    bowman_sock = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (sock == -1) {
+    if (poole_sock == -1 || bowman_sock == -1) {
         printF(C_BOLDRED);
         printF("Error creating socket\n");
         printF(C_RESET);
@@ -162,70 +147,56 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    if (openConnection(sock, server, server_type) == -1) {
+    if (openConnection(poole_sock, server_p, "poole") == -1 || openConnection(bowman_sock, server_b, "bowman") == -1) {
         return -1;
     }
-    
-    if (pid != 0) {
-        printF("Waiting for connections...\n");
-    }
-    int num_threads = 0;
-    pthread_t* threads = NULL;
+
     while (1) {
-
-        struct sockaddr_in client;
-        socklen_t c_len = sizeof(client);
-
-
-        int newsock = accept(sock, (struct sockaddr *) &client, &c_len);
-
-        if (newsock < 0) {
-            asprintf(&buffer, "%sError accepting %s socket connection\n%s", C_BOLDRED, server_type, C_RESET);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
-
-            return -1;
+        FD_ZERO(&readfds);
+        FD_SET(poole_sock, &readfds);
+        FD_SET(bowman_sock, &readfds);
+        for (int i = 0; i < num_clients; i++) {
+            FD_SET(clients_fd[i], &readfds);
         }
 
-        asprintf(&buffer, "%sNew %s connection from %s:%hu in %s:%hu\n%s", C_GREEN, server_type, inet_ntoa (client.sin_addr), ntohs (client.sin_port), inet_ntoa (server.sin_addr), ntohs (server.sin_port), C_RESET);
-        printF(buffer);
-        free(buffer);
-        buffer = NULL;
+        printF("Waiting for connections...\n");
+
+        int ready = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
         
-        num_threads++;
-        threads = (pthread_t*) realloc(threads, num_threads * sizeof(pthread_t));
-    
-        if (pthread_create(&threads[0], NULL, connectionHandler, &newsock) != 0) {
-            asprintf(&buffer,  "%sError creating the poole or bowman thread\n%s", C_BOLDRED, C_RESET);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
-            
+        if (ready == -1) {
+            printF("Error in select\n");
             return -1;
         }
-
-    }
-
-    for (int i = 0; i < num_threads; i++) {
-        if (pthread_join(threads[i], NULL) != 0) {
-            asprintf(&buffer, "%sError synchronizing threads\n%s", C_BOLDRED, C_RESET);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
-
-            return -1;
+        else if (ready == 0) {
+            printF("Timeout\n");
+        }
+        else {
+            if (FD_ISSET(poole_sock, &readfds)) {
+                if (acceptConnection(&num_clients, clients_fd, "poole", poole_sock) == -1) {
+                    return -1;
+                }
+            }
+            else if (FD_ISSET(bowman_sock, &readfds)) {
+                if (acceptConnection(&num_clients, clients_fd, "bowman", bowman_sock) == -1) {
+                    return -1;
+                }
+            }
+            else {
+                for (int i = 0; i < num_clients; i++) {
+                    if (FD_ISSET(clients_fd[i], &readfds)) {
+                        connectionHandler(clients_fd[i]);
+                        break;
+                    }
+                }
+            }
         }
     }
 
-    close (sock);
-    
-    if (pid == 0) {
-        exit(0);
-    } else {
-        wait(NULL);
-        munmap(num_servers, sizeof *num_servers);
+    close (poole_sock);
+    close (bowman_sock);
+    for (int i = 0; i < num_clients; i++) {
+        close(clients_fd[i]);
     }
-
+    
     return 0;
 }

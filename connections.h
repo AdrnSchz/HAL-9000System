@@ -44,6 +44,7 @@ struct sockaddr_in configServer(char* ip, int port);
 
 int openConnection(int sock, struct sockaddr_in server, char* server_type);
 
+int acceptConnection(int* num_clients, int* clients_fd, char* server_type, int sock);
 /********************************************************************
  *
  * @Purpose: Checks if a given port number is within the valid range.
