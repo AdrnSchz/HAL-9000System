@@ -180,6 +180,7 @@ int main(int argc, char *argv[]) {
                 if (acceptConnection(&num_clients, clients_fd, "bowman", bowman_sock) == -1) {
                     return -1;
                 }
+            }
             for (int i = 0; i < num_clients; i++) {
                 if (FD_ISSET(clients_fd[i], &readfds)) {
                     connectionHandler(clients_fd[i]);

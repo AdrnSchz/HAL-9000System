@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
     int sock;
     //size_t i = 0;
     Server_conf config;
-    //Header header;
+    Header header;
 
     if (argc != 2) {
         printF(C_BOLDRED);
@@ -144,10 +144,10 @@ int main(int argc, char *argv[]) {
     asprintf(&buffer, T1_POOLE, config.server, config.user_ip, config.user_port);
     buffer = sendFrame(buffer, sock);
 
-    Header header = readHeader(sock);
+    header = readHeader(sock);
 
     if (header.type == '1' && strcmp(header.header, "CON_OK") == 0) {
-        //close(sock); //como cerrarlo
+        close(sock); 
 
         server = configServer(config.user_ip, config.user_port);
         sock = socket(AF_INET, SOCK_STREAM, 0);
