@@ -176,17 +176,13 @@ int main(int argc, char *argv[]) {
                     return -1;
                 }
             }
-            else if (FD_ISSET(bowman_sock, &readfds)) {
+            if (FD_ISSET(bowman_sock, &readfds)) {
                 if (acceptConnection(&num_clients, clients_fd, "bowman", bowman_sock) == -1) {
                     return -1;
                 }
-            }
-            else {
-                for (int i = 0; i < num_clients; i++) {
-                    if (FD_ISSET(clients_fd[i], &readfds)) {
-                        connectionHandler(clients_fd[i]);
-                        break;
-                    }
+            for (int i = 0; i < num_clients; i++) {
+                if (FD_ISSET(clients_fd[i], &readfds)) {
+                    connectionHandler(clients_fd[i]);
                 }
             }
         }
