@@ -38,7 +38,7 @@ int openConnection(int sock, struct sockaddr_in server, char* server_type) {
     return 0;
 }
 
-int acceptConnection(int* num_clients, int* clients_fd, char* server_type, int sock) {
+int acceptConnection(int* num_clients, int* clients_fd, char* server_type, int sock, int isDiscovery) {
     char* buffer;
     struct sockaddr_in client_addr; 
     socklen_t client_len = sizeof(client_addr);
@@ -53,10 +53,12 @@ int acceptConnection(int* num_clients, int* clients_fd, char* server_type, int s
         return -1;
     }
 
-    asprintf(&buffer, "%sNew %s connection from %s:%hu\n%s", C_GREEN, server_type, inet_ntoa (client_addr.sin_addr), ntohs (client_addr.sin_port), C_RESET);
-    printF(buffer);
-    free(buffer);
-    buffer = NULL;
+    if (isDiscovery == 1) {
+        asprintf(&buffer, "\n%sNew %s connection from %s:%hu\n%s", C_GREEN, server_type, inet_ntoa (client_addr.sin_addr), ntohs (client_addr.sin_port), C_RESET);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+    }
 
     *num_clients = *num_clients + 1;
     clients_fd = (int*) realloc(clients_fd, sizeof(int) * (*num_clients + 1));
@@ -91,9 +93,9 @@ Header readHeader(int sock) {
     int i, j;
 
     read(sock, buffer, 256);
-    printF("Received frame: ");
-    printF(buffer);
-    printF("\n");
+    //printF("Received frame: ");
+    //printF(buffer);
+    //printF("\n");
     header.type = buffer[0];
     header.length[0] = buffer[1];
     header.length[1] = buffer[2];
@@ -102,12 +104,13 @@ Header readHeader(int sock) {
     for (i = 0; i < atoi(header.length); i++) {
         header.header[i] = buffer[i + 3];
     }
-    header.header[i + 3] = '\0';
+    header.header[i] = '\0';
     header.data = (char*) malloc(strlen(buffer) - i - 2);
     for (j = 0; buffer[j + i + 3] != '\0'; j++) {
         header.data[j] = buffer[j + i + 3];
     }
-    header.data[j + i + 3] = '\0';
+    header.data[j] = '\0';
+
     return header;
 }
 
@@ -118,9 +121,9 @@ char* sendFrame(char* buffer, int sock) {
             buffer[i] = '\0';
     }
     write(sock, buffer, 256);
-    printF("Sending frame: ");
-    printF(buffer);
-    printF("\n");
+    //printF("Sending frame: ");
+    //printF(buffer);
+    //printF("\n");
     free(buffer);
     buffer = NULL;
 

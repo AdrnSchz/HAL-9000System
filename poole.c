@@ -44,11 +44,10 @@ int bowmanHandler(int sock, int user_pos, char** users) {
         printF(buffer);
         free(buffer);
         buffer = NULL;
-
     }
     else if (header.type == '2') {
         if (strcmp(header.header, "LIST_SONGS") == 0) {
-            asprintf(&buffer, "\nNew request – %s requires the list of songs.\nSending song list to %s", users[user_pos], users[user_pos]);
+            asprintf(&buffer, "\n%sNew request – %s requires the list of songs.\n%sSending song list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
             printF(buffer);
             free(buffer);
             buffer = NULL;
@@ -68,7 +67,7 @@ int bowmanHandler(int sock, int user_pos, char** users) {
             }
         }
         else if (strcmp(header.header, "LIST_PLAYLISTS") == 0) {
-            asprintf(&buffer, "\nNew request – %s requires the list of playlists.\nSending playlist list to %s", users[user_pos], users[user_pos]);
+            asprintf(&buffer, "\n%sNew request – %s requires the list of playlists.\n%sSending playlist list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
             printF(buffer);
             free(buffer);
             buffer = NULL;
@@ -92,23 +91,15 @@ int bowmanHandler(int sock, int user_pos, char** users) {
         }
 
     }
-    else if (header.type == '6') {
-        header = readHeader(sock);
+    else if (header.type == '6' && strcmp(header.header, "EXIT") == 0) {
+        asprintf(&buffer, T6_OK);
+        buffer = sendFrame(buffer, sock);
+        asprintf(&buffer, "\n%sUser %s disconnected%s\n", C_RED, header.data, C_RESET);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
 
-        if (header.type == '6' && strcmp(header.header, "EXIT") == 0) {
-            asprintf(&buffer, T6_OK);
-            buffer = sendFrame(buffer, sock);
-            asprintf(&buffer, "User %s disconnected\n", header.data);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
-
-            return -1;
-        }
-        else {
-            printF("Wrong frame\n");
-            sendError(sock);
-        }
+        return -1;
     }
     else if (header.type == '7') {
         printF(C_BOLDRED);
@@ -131,7 +122,7 @@ int bowmanHandler(int sock, int user_pos, char** users) {
  * @Return: 0 on success, -1 on error.
  *
  ********************************************************************/
-static int acceptConnections(int sock) {
+static int listenConnections(int sock) {
     fd_set readfds;
     int* users_fd = (int*) malloc(sizeof(int));
     int num_users = 0;
@@ -157,7 +148,7 @@ static int acceptConnections(int sock) {
         }
         else {
             if (FD_ISSET(sock, &readfds)) {
-                if (acceptConnection(&num_users, users_fd, "bowman", sock) == -1) {
+                if (acceptConnection(&num_users, users_fd, "bowman", sock, 0) == -1) {
                     return -1;
                 }
                 users = (char**) realloc(users, sizeof(char*) * num_users);
@@ -212,7 +203,7 @@ int main(int argc, char *argv[]) {
     }
 
     config = readConfigPol(argv[1]);
-    printF("\nReading configuration file\n");
+    printF("Reading configuration file\n");
 
 
     if (checkPort(config.discovery_port) == -1 || checkPort(config.user_port) == -1) {
@@ -254,7 +245,7 @@ int main(int argc, char *argv[]) {
     header = readHeader(sock);
 
     if (header.type == '1' && strcmp(header.header, "CON_OK") == 0) {
-        //close(sock); 
+        close(sock); 
 
         server = configServer(config.user_ip, config.user_port);
         sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -268,7 +259,7 @@ int main(int argc, char *argv[]) {
         free(buffer);
         buffer = NULL;
 
-        if (acceptConnections(sock) == -1) {
+        if (listenConnections(sock) == -1) {
             return -1;
         }
     }

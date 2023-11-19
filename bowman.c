@@ -14,6 +14,7 @@
  * - The code includes signal handling for program termination when receiving SIGINT.
  *
  ********************************************************************/
+
 #include "functions.h"
 #include "test.h"
 #include "configs.h"
@@ -22,12 +23,12 @@
 User_conf config;
 
 /********************************************************************
- *
- * @Purpose: Handles SIGINT signal for graceful program termination.
- * @Parameters: sigsum - The signal number.
- * @Return: ---
- *
- *******************************************************************/
+*
+* @Purpose: Handles the SIGINT signal for aborting the program.
+* @Parameters: sigsum - The signal number.
+* @Return: ---
+*
+*******************************************************************/
 void sig_handler(int sigsum) {
 
     switch(sigsum) {
@@ -46,9 +47,9 @@ void sig_handler(int sigsum) {
 
 /********************************************************************
  *
- * @Purpose: Sets up a socket connection based on configuration file details.
- * @Parameters: sock - Pointer to the socket variable.
- *              server - Pointer to server address structure.
+ * @Purpose: Establishes a socket connection with the server using the information from the 'config' structure.
+ * @Parameters: sock - A pointer to the socket variable.
+ *              server - A pointer to the server address structure.
  * @Return: 0 if successful, -1 otherwise.
  *
  ********************************************************************/
@@ -79,11 +80,10 @@ int configConnection(int* sock, struct sockaddr_in* server) {
 
 /********************************************************************
  *
- * @Purpose: Initializes the Bowman user, manages socket connections to 
- *           Discovery and Poole servers, and handles user commands and responses.
+ * @Purpose: Main function that initializes the Bowman user and handles user interactions.
  * @Parameters: argc - The number of command-line arguments.
  *              argv - An array of the command-line arguments.
- * @Return: 0 on success, -1 on error.
+ * @Return: 0 if successful, -1 otherwise.
  *
  ********************************************************************/
 int main(int argc, char *argv[]) {
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    asprintf(&buffer, "\n%s user initialized\n\n", config.user);
+    asprintf(&buffer, "%s user initialized\n", config.user);
     printF(buffer);
     free(buffer);
     buffer = NULL;
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
     
     while(1) {
         printF(BOLD);
-        printF("$ ");
+        printF("\n$ ");
         readLine(0, &buffer);
         printF(C_RESET);
         switch (checkCommand(buffer)) {
@@ -178,12 +178,12 @@ int main(int argc, char *argv[]) {
                         connected = 1;
                     }
                     else if (header.type == '1' && strcmp(header.header, "CON_KO") == 0) {
-                        printF(C_BOLDRED);
+                        printF(C_RED);
                         printF("Could not establish connection.\n");
                         printF(C_RESET);
                     }
                     else {
-                        printF(C_BOLDRED);
+                        printF(C_RED);
                         printF("Received wrong frame\n");
                         printF(C_RESET);
                         sendError(poole_sock);
@@ -191,24 +191,23 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 else if (header.type == '1' && strcmp(header.header, "CON_KO") == 0) {
-                    printF(C_BOLDRED);
+                    printF(C_RED);
                     printF("Could not establish connection.\n");
                     printF(C_RESET);
                 }
                 else if (header.type == '7') {
-                    printF(C_BOLDRED);
+                    printF(C_RED);
                     printF("Sent wrong frame\n");
                     printF(C_RESET);
                     //close(sock);
                 }
                 else {
-                    printF(C_BOLDRED);
+                    printF(C_RED);
                     printF("Received wrong frame\n");
                     printF(C_RESET);
                     sendError(discovery_sock);
                     //close(sock);
                 }
-                printF("\n");
                 break;
             case 1:
                 if (connected == 1) {
@@ -235,7 +234,7 @@ int main(int argc, char *argv[]) {
                         printF(C_RESET);
                     }
                     else {
-                        printF(C_BOLDRED);
+                        printF(C_RED);
                         printF("Received wrong frame\n");
                         printF(C_RESET);
                         sendError(poole_sock);
@@ -270,7 +269,6 @@ int main(int argc, char *argv[]) {
                     free(buffer);
                     buffer = NULL;
                 }
-                printF("\n");
                 break;
             case 3:
                 //list playlists
@@ -298,7 +296,6 @@ int main(int argc, char *argv[]) {
                     free(buffer);
                     buffer = NULL;
                 }
-                printF("\n");
                 break;
             case 4:
                 printF(C_GREEN);
@@ -316,15 +313,15 @@ int main(int argc, char *argv[]) {
                 printF(C_RESET);
                 break;
             case 7:
-                printF(C_BOLDRED);
-                printF("KO\n");
-                //printF("Unknown command.\n");
+                printF(C_RED);
+                //printF("KO\n");
+                printF("Unknown command.\n");
                 printF(C_RESET);
                 break;
             default:
-                printF(C_BOLDRED);
-                printF("KO\n");
-                //printF("ERROR: Please input a valid command.\n");
+                printF(C_RED);
+                //printF("KO\n");
+                printF("ERROR: Please input a valid command.\n");
                 printF(C_RESET);
                 break;
         }

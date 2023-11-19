@@ -56,6 +56,8 @@ int connectionHandler(int sock) {
             
             asprintf(&buffer, T1_OK);
             buffer = sendFrame(buffer, sock);
+
+            return -1;
         }
         else if (strcmp(header.header, "NEW_BOWMAN") == 0) {
             least_users = INT_MAX;
@@ -86,13 +88,10 @@ int connectionHandler(int sock) {
             buffer = sendFrame(buffer, sock);
         }
     }
-    else if (header.type == '6') {
-        header = readHeader(sock);
-
-        if (header.type == '6' && strcmp(header.header, "EXIT") == 0) {
+    else if (header.type == '6' && strcmp(header.header, "EXIT") == 0) {
             asprintf(&buffer, T6_OK);
             buffer = sendFrame(buffer, sock);
-            asprintf(&buffer, "User disconnected from server %s\n", header.data);
+            asprintf(&buffer, "\n%sUser disconnected from server %s%s\n", C_RED, header.data, C_RESET);
             printF(buffer);
             free(buffer);
             buffer = NULL;
@@ -104,11 +103,6 @@ int connectionHandler(int sock) {
                 }
             }
             return -1;
-        }
-        else {
-            printF("Wrong frame\n");
-            sendError(sock);
-        }
     }
     else if (header.type == '7') {
         printF(C_BOLDRED);
@@ -194,15 +188,12 @@ int main(int argc, char *argv[]) {
         }
         else {
             if (FD_ISSET(poole_sock, &readfds)) {
-                printF("\n");
-                if (acceptConnection(&num_clients, clients_fd, "poole", poole_sock) == -1) {
+                if (acceptConnection(&num_clients, clients_fd, "poole", poole_sock, 1) == -1) {
                     return -1;
                 }
             }
             if (FD_ISSET(bowman_sock, &readfds)) {
-                printF("Waiting for bowman...\n");
-                printF("\n");
-                if (acceptConnection(&num_clients, clients_fd, "bowman", bowman_sock) == -1) {
+                if (acceptConnection(&num_clients, clients_fd, "bowman", bowman_sock, 1) == -1) {
                     return -1;
                 }
             }
