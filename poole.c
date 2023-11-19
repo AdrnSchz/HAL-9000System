@@ -67,7 +67,7 @@ int bowmanHandler(int sock, int user_pos, char** users) {
                 buffer = sendFrame(buffer, sock);
             }
         }
-        else if (strcmp(header.header, " LIST_PLAYLISTS") == 0) {
+        else if (strcmp(header.header, "LIST_PLAYLISTS") == 0) {
             asprintf(&buffer, "\nNew request – %s requires the list of playlists.\nSending playlist list to %s", users[user_pos], users[user_pos]);
             printF(buffer);
             free(buffer);
