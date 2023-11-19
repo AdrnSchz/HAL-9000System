@@ -18,6 +18,16 @@
 #include "configs.h"
 #include "connections.h"
 
+/********************************************************************
+ *
+ * @Purpose: Handles interactions with connected Bowman users, processing 
+ *           requests and managing user sessions.
+ * @Parameters: sock - Socket descriptor
+ *              user_pos - Position in the user array
+ *              users - Array of user names.
+ * @Return: 0 on success, -1 on user disconnection or error.
+ *
+ ********************************************************************/
 int bowmanHandler(int sock, int user_pos, char** users) {
     Header header;
     char* buffer = NULL;
@@ -30,7 +40,7 @@ int bowmanHandler(int sock, int user_pos, char** users) {
         buffer = sendFrame(buffer, sock);
         
         users[user_pos] = getString(0, '\0', header.data);
-        asprintf(&buffer, "\nNew user connected: %s.\n", users[user_pos]);
+        asprintf(&buffer, "%s\nNew user connected: %s.\n%s", C_GREEN, users[user_pos], C_RESET);
         printF(buffer);
         free(buffer);
         buffer = NULL;
@@ -38,6 +48,11 @@ int bowmanHandler(int sock, int user_pos, char** users) {
     }
     else if (header.type == '2') {
         if (strcmp(header.header, "LIST_SONGS") == 0) {
+            asprintf(&buffer, "\nNew request – %s requires the list of songs.\nSending song list to %s", users[user_pos], users[user_pos]);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+
             //get number of songs and songs
 
             asprintf(&buffer, T2_SONGS_RESPONSE, 0); //0 will be the num of songs to be sent
@@ -53,6 +68,10 @@ int bowmanHandler(int sock, int user_pos, char** users) {
             }
         }
         else if (strcmp(header.header, " LIST_PLAYLISTS") == 0) {
+            asprintf(&buffer, "\nNew request – %s requires the list of playlists.\nSending playlist list to %s", users[user_pos], users[user_pos]);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
             //get number of playlists and songs
 
             asprintf(&buffer, T2_PLAYLISTS_RESPONSE, 0); //0 will be the num of songs to be sent
@@ -104,6 +123,14 @@ int bowmanHandler(int sock, int user_pos, char** users) {
     return 0;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Accepts incoming connections from Bowman users, managing users 
+ *           and allocating resources.
+ * @Parameters: sock - Server socket descriptor.
+ * @Return: 0 on success, -1 on error.
+ *
+ ********************************************************************/
 static int acceptConnections(int sock) {
     fd_set readfds;
     int* users_fd = (int*) malloc(sizeof(int));
@@ -162,7 +189,8 @@ static int acceptConnections(int sock) {
 
 /********************************************************************
  *
- * @Purpose: Main function that initializes the Poole server.
+ * @Purpose: Initializes the Poole server, connecting to the Discovery server 
+ *           and managing incoming Bowman user connections.
  * @Parameters: argc - The number of command-line arguments.
  *              argv - An array of the command-line arguments.
  * @Return: 0 if successful, -1 otherwise.
@@ -184,7 +212,7 @@ int main(int argc, char *argv[]) {
     }
 
     config = readConfigPol(argv[1]);
-    printF("Reading configuration file\n");
+    printF("\nReading configuration file\n");
 
 
     if (checkPort(config.discovery_port) == -1 || checkPort(config.user_port) == -1) {

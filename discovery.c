@@ -25,6 +25,14 @@ Server* servers;
 int* clients_fd;
 int num_servers = 0, num_clients = 0;
 
+/********************************************************************
+ *
+ * @Purpose: Manages connections and interactions on the Discovery server, 
+ *           including request handling, server registration, and error management.
+ * @Parameters: sock - Socket descriptor for the connection.
+ * @Return: 0 on successful handling, -1 on disconnect or error.
+ *
+ ********************************************************************/
 int connectionHandler(int sock) {
     Header header;
     int least_users = INT_MAX, pos;
@@ -117,7 +125,8 @@ int connectionHandler(int sock) {
 
 /********************************************************************
  *
- * @Purpose: Main function of the Discovery server.
+ * @Purpose: Initializes and runs the Discovery server, setting up connections 
+ *           and handling interactions with Poole and Bowman servers.
  * @Parameters: argc - The number of command-line arguments.
  *              argv - An array of the command-line arguments.
  * @Return: 0 on success, -1 on failure.
@@ -185,12 +194,14 @@ int main(int argc, char *argv[]) {
         }
         else {
             if (FD_ISSET(poole_sock, &readfds)) {
+                printF("\n");
                 if (acceptConnection(&num_clients, clients_fd, "poole", poole_sock) == -1) {
                     return -1;
                 }
             }
             if (FD_ISSET(bowman_sock, &readfds)) {
                 printF("Waiting for bowman...\n");
+                printF("\n");
                 if (acceptConnection(&num_clients, clients_fd, "bowman", bowman_sock) == -1) {
                     return -1;
                 }
@@ -198,7 +209,7 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < num_clients; i++) {
                 if (FD_ISSET(clients_fd[i], &readfds)) {
                     if (connectionHandler(clients_fd[i]) == -1) {
-                        //cerrar sock
+                        // Close socket
                         close(clients_fd[i]);
                         FD_CLR(clients_fd[i], &readfds);
                         for (int j = i; j < num_clients - 1; j++) {

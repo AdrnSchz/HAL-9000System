@@ -3,7 +3,8 @@
  * @Purpose: HAL 9000 System - Config files
  * @Author: Marc Escoté Llopis & Adrián Jorge Sánchez López
  *
- * - This file contains function declarations and structs defined regarding the configs for each code.
+ * - This file contains function declarations and structs defined used 
+ *   for the connections of sockets.
  *
  ********************************************************************/
 #ifndef _CONNECTIONS_H_
@@ -45,9 +46,38 @@ typedef struct {
     int port;
 } Server;
 
+/********************************************************************
+ *
+ * @Purpose: Configures the server address structure for connections.
+ * @Parameters: ip - The IP address.
+ *              port - The port number.
+ * @Return: The configured server address structure.
+ *
+ ********************************************************************/
 struct sockaddr_in configServer(char* ip, int port);
 
+/********************************************************************
+ *
+ * @Purpose: Binds a socket to a specific server address and starts listening for connections.
+ * @Parameters: sock - The socket file descriptor.
+ *              server - The server address structure.
+ *              server_type - A string indicating the server type.
+ * @Return: 0 if successful, -1 on error.
+ *
+ ********************************************************************/
 int openConnection(int sock, struct sockaddr_in server, char* server_type);
+
+/********************************************************************
+ *
+ * @Purpose: Accepts new incoming connections on a server socket and dynamically 
+ *           reallocates client file descriptors.
+ * @Parameters: num_clients - Pointer to the number of clients.
+ *              clients_fd - Array of client file descriptors.
+ *              server_type - A string indicating the server type.
+ *              sock - The server socket file descriptor.
+ * @Return: 0 if successful, -1 on error.
+ *
+ ********************************************************************/
 
 int acceptConnection(int* num_clients, int* clients_fd, char* server_type, int sock);
 /********************************************************************
@@ -70,13 +100,21 @@ void sendError(int sock);
 
 /********************************************************************
  *
- * @Purpose: Reads a header from a socket.
- * @Parameters: sock - The socket file descriptor.
- * @Return: The read header structure.
+ * @Purpose: Reads a data frame header from a socket and parses its components.
+ * @Parameters: sock - The socket file descriptor to read the header from.
+ * @Return: The parsed header structure.
  *
  ********************************************************************/
 Header readHeader(int sock);
 
+/********************************************************************
+ *
+ * @Purpose: Sends a data frame over a socket, ensuring the frame is of a fixed size.
+ * @Parameters: buffer - The data frame to send.
+ *              sock - The socket file descriptor to send the frame to.
+ * @Return: A null pointer after freeing the buffer.
+ *
+ ********************************************************************/
 char* sendFrame(char* buffer, int sock);
 
 #endif

@@ -6,17 +6,8 @@
  * - This file contains common functions shared among the project.
  *
  ********************************************************************/
-
 #include "functions.h"
 
-/********************************************************************
- *
- * @Purpose: Reads an integer from a file descriptor and stores it in the specified variable.
- * @Parameters: source - File descriptor to read from.
- *              num - Pointer to the variable where the integer will be stored.
- * @Return: ---
- *
- ********************************************************************/
 void readNum(int source, int* num) {
     char *buffer;
     int i = 0;
@@ -39,14 +30,6 @@ void readNum(int source, int* num) {
     buffer = NULL;
 }
 
-/********************************************************************
- *
- * @Purpose: Reads a line from a file descriptor and allocates memory to store the information.
- * @Parameters: source - File descriptor to read from.
- *              string - Pointer to a string pointer where the line will be stored.
- * @Return: ---
- *
- ********************************************************************/
 void readLine(int source, char** string) {
     char* buffer = NULL;
     int i = 0;
@@ -66,13 +49,6 @@ void readLine(int source, char** string) {
     *string = buffer;
 }
 
-/********************************************************************
- *
- * @Purpose: Checks and removes '&' characters from a user name.
- * @Parameters: name - Pointer to the string containing the user name.
- * @Return: ---
- *
- ********************************************************************/
 void checkName(char** name) {
     int i = 0, j = 0, num = 0;
 
@@ -94,13 +70,6 @@ void checkName(char** name) {
     
 }
 
-/********************************************************************
- *
- * @Purpose: Capitalizes all characters in a string.
- * @Parameters: string - Pointer to the string to be capitalized.
- * @Return: ---
- *
- ********************************************************************/
 void capitalize(char** string) {
     int i = 0;
 
@@ -112,13 +81,6 @@ void capitalize(char** string) {
     }
 }
 
-/********************************************************************
- *
- * @Purpose: Removes extra white spaces from a string, keeping only one space between words.
- * @Parameters: string - Pointer to the string to be processed.
- * @Return: ---
- *
- ********************************************************************/
 void removeWhiteSpaces(char** string) {
     int i = 0, len = 0;
     char* processed = (char*)malloc(sizeof(char) * (strlen(*string) + 1));
@@ -137,13 +99,6 @@ void removeWhiteSpaces(char** string) {
     *string = processed;
 }
 
-/********************************************************************
- *
- * @Purpose: Checks if input entered in the command line corresponds to a valid command.
- * @Parameters: buffer - The input buffer containing the command.
- * @Return: The command index if valid, -1 otherwise.
- *
- ********************************************************************/
 int checkCommand(char* buffer) {
     size_t i = 0, j, correct;
     int error;
@@ -206,15 +161,6 @@ int checkCommand(char* buffer) {
     return -1;
 }
 
-/********************************************************************
- *
- * @Purpose: Extracts a substring from a string based on specified indices.
- * @Parameters: from - The starting index.
- *              until - The ending character.
- *              string - The source string.
- * @Return: The extracted substring.
- *
- ********************************************************************/
 char* getString(int from, char until, char* string) {
     char* buffer;
     int j = 0;

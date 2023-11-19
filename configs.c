@@ -3,7 +3,7 @@
  * @Purpose: HAL 9000 System - Config files
  * @Author: Marc Escoté Llopis & Adrián Jorge Sánchez López
  *
- * - This file contains function regarding the configs for each code.
+ * - This file contains functions used for reading the configuration files.
  *
  ********************************************************************/
 #include "configs.h"

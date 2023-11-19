@@ -1,3 +1,12 @@
+/********************************************************************
+ *
+ * @Purpose: HAL 9000 System - Socket Connections
+ * @Authors: Marc Escoté Llopis & Adrián Jorge Sánchez López
+ *
+ * - This file contains functions fot the server setup, connection handling, 
+ *   port checking, and error management.
+ *
+ ********************************************************************/
 #include "connections.h"
 #include <netinet/in.h>
 

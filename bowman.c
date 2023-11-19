@@ -14,7 +14,6 @@
  * - The code includes signal handling for program termination when receiving SIGINT.
  *
  ********************************************************************/
-
 #include "functions.h"
 #include "test.h"
 #include "configs.h"
@@ -23,12 +22,12 @@
 User_conf config;
 
 /********************************************************************
-*
-* @Purpose: Handles the SIGINT signal for aborting the program.
-* @Parameters: sigsum - The signal number.
-* @Return: ---
-*
-*******************************************************************/
+ *
+ * @Purpose: Handles SIGINT signal for graceful program termination.
+ * @Parameters: sigsum - The signal number.
+ * @Return: ---
+ *
+ *******************************************************************/
 void sig_handler(int sigsum) {
 
     switch(sigsum) {
@@ -47,9 +46,9 @@ void sig_handler(int sigsum) {
 
 /********************************************************************
  *
- * @Purpose: Establishes a socket connection with the server using the information from the 'config' structure.
- * @Parameters: sock - A pointer to the socket variable.
- *              server - A pointer to the server address structure.
+ * @Purpose: Sets up a socket connection based on configuration file details.
+ * @Parameters: sock - Pointer to the socket variable.
+ *              server - Pointer to server address structure.
  * @Return: 0 if successful, -1 otherwise.
  *
  ********************************************************************/
@@ -80,10 +79,11 @@ int configConnection(int* sock, struct sockaddr_in* server) {
 
 /********************************************************************
  *
- * @Purpose: Main function that initializes the Bowman user and handles user interactions.
+ * @Purpose: Initializes the Bowman user, manages socket connections to 
+ *           Discovery and Poole servers, and handles user commands and responses.
  * @Parameters: argc - The number of command-line arguments.
  *              argv - An array of the command-line arguments.
- * @Return: 0 if successful, -1 otherwise.
+ * @Return: 0 on success, -1 on error.
  *
  ********************************************************************/
 int main(int argc, char *argv[]) {
@@ -107,10 +107,8 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    asprintf(&buffer, "\n%s user initialized\n", config.user);
-    printF(BOLD);
+    asprintf(&buffer, "\n%s user initialized\n\n", config.user);
     printF(buffer);
-    printF(C_RESET);
     free(buffer);
     buffer = NULL;
 
@@ -122,8 +120,10 @@ int main(int argc, char *argv[]) {
     }
     
     while(1) {
+        printF(BOLD);
         printF("$ ");
         readLine(0, &buffer);
+        printF(C_RESET);
         switch (checkCommand(buffer)) {
             case 0:
                 if (connected == 1) {
@@ -208,6 +208,7 @@ int main(int argc, char *argv[]) {
                     sendError(discovery_sock);
                     //close(sock);
                 }
+                printF("\n");
                 break;
             case 1:
                 if (connected == 1) {
@@ -269,6 +270,7 @@ int main(int argc, char *argv[]) {
                     free(buffer);
                     buffer = NULL;
                 }
+                printF("\n");
                 break;
             case 3:
                 //list playlists
@@ -279,7 +281,7 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                asprintf(&buffer, T2_PLAYLISTS, 0);
+                asprintf(&buffer, T2_PLAYLISTS);
                 buffer = sendFrame(buffer, poole_sock);
 
                 header = readHeader(poole_sock);
@@ -296,6 +298,7 @@ int main(int argc, char *argv[]) {
                     free(buffer);
                     buffer = NULL;
                 }
+                printF("\n");
                 break;
             case 4:
                 printF(C_GREEN);
