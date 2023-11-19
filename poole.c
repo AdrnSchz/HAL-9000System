@@ -18,66 +18,145 @@
 #include "configs.h"
 #include "connections.h"
 
-void* bowmanHandler(void *arg) {
-    int sock = *(int*) arg;
+int bowmanHandler(int sock, int user_pos, char** users) {
+    Header header;
     char* buffer = NULL;
 
-    asprintf(&buffer, "connectionHandler from poole %d", sock);
-    printF(buffer);
-    free(buffer);
-    buffer = NULL;
+    header = readHeader(sock);
 
-    return NULL;
+    if (header.type == '1' && strcmp(header.header, "NEW_BOWMAN") == 0) {
+        
+        asprintf(&buffer, T1_OK);
+        buffer = sendFrame(buffer, sock);
+        
+        users[user_pos] = getString(0, '\0', header.data);
+        asprintf(&buffer, "\nNew user connected: %s.\n", users[user_pos]);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+
+    }
+    else if (header.type == '2') {
+        if (strcmp(header.header, "LIST_SONGS") == 0) {
+            //get number of songs and songs
+
+            asprintf(&buffer, T2_SONGS_RESPONSE, 0); //0 will be the num of songs to be sent
+            buffer = sendFrame(buffer, sock);
+
+            for (int i = 0; i < 0; i++) { //0 will be the num of songs to be sent
+                char end = '&';
+                if (i == 0) {
+                    end = '\0';
+                }
+                asprintf(&buffer, "name of song%c", end); 
+                buffer = sendFrame(buffer, sock);
+            }
+        }
+        else if (strcmp(header.header, " LIST_PLAYLISTS") == 0) {
+            //get number of playlists and songs
+
+            asprintf(&buffer, T2_PLAYLISTS_RESPONSE, 0); //0 will be the num of songs to be sent
+            buffer = sendFrame(buffer, sock);
+
+            for (int i = 0; i < 0; i++) { //0 will be the num of songs to be sent
+                char end = '&';
+                if (i == 0) {
+                    end = '\0';
+                }
+                asprintf(&buffer, "name of playlist%c", end); 
+                buffer = sendFrame(buffer, sock);
+            }
+        }
+        else {
+            printF("Wrong frame\n");
+            sendError(sock);
+        }
+
+    }
+    else if (header.type == '6') {
+        header = readHeader(sock);
+
+        if (header.type == '6' && strcmp(header.header, "EXIT") == 0) {
+            asprintf(&buffer, T6_OK);
+            buffer = sendFrame(buffer, sock);
+            asprintf(&buffer, "User %s disconnected\n", header.data);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+
+            return -1;
+        }
+        else {
+            printF("Wrong frame\n");
+            sendError(sock);
+        }
+    }
+    else if (header.type == '7') {
+        printF(C_BOLDRED);
+        printF("Sent wrong frame\n");
+        printF(C_RESET);
+    }
+    else {
+        printF("Wrong frame\n");
+        sendError(sock);
+    }
+
+    return 0;
 }
 
 static int acceptConnections(int sock) {
-    char* buffer = NULL;
-    int num_threads = 0;
-    pthread_t* threads = NULL;
+    fd_set readfds;
+    int* users_fd = (int*) malloc(sizeof(int));
+    int num_users = 0;
+    char** users = (char**) malloc(sizeof(char*));
 
     printF("\nWaiting for connections...\n");
     
     while (1) {
-        struct sockaddr_in client;
-        socklen_t c_len = sizeof(client);
-
-        int newsock = accept(sock, (struct sockaddr *) &client, &c_len);
-
-        if (newsock < 0) {
-            asprintf(&buffer, "%sError accepting socket connection\n%s", C_BOLDRED, C_RESET);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
-
-            return -1;
+        FD_ZERO(&readfds);
+        FD_SET(sock, &readfds);
+        for (int i = 0; i < num_users; i++) {
+            FD_SET(users_fd[i], &readfds);
         }
+
+        int ready = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
         
-        num_threads++;
-        threads = (pthread_t*) realloc(threads, num_threads * sizeof(pthread_t));
-    
-        if (pthread_create(&threads[0], NULL, bowmanHandler, &newsock) != 0) {
-            asprintf(&buffer,  "%sError creating the poole or bowman thread\n%s", C_BOLDRED, C_RESET);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
-            
+        if (ready == -1) {
+            printF("Error in select\n");
             return -1;
         }
-
-    }
-
-    for (int i = 0; i < num_threads; i++) {
-        if (pthread_join(threads[i], NULL) != 0) {
-            asprintf(&buffer, "%sError synchronizing threads\n%s", C_BOLDRED, C_RESET);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
-
-            return -1;
+        else if (ready == 0) {
+            printF("Timeout\n");
+        }
+        else {
+            if (FD_ISSET(sock, &readfds)) {
+                if (acceptConnection(&num_users, users_fd, "bowman", sock) == -1) {
+                    return -1;
+                }
+                users = (char**) realloc(users, sizeof(char*) * num_users);
+            }
+            for (int i = 0; i < num_users; i++) {
+                if (FD_ISSET(users_fd[i], &readfds)) {
+                    if (bowmanHandler(users_fd[i], i, users) == -1) {
+                        //cerrar sock
+                        close(users_fd[i]);
+                        FD_CLR(users_fd[i], &readfds);
+                        for (int j = i; j < num_users - 1; j++) {
+                            users_fd[j] = users_fd[j + 1];
+                            users[j] = users[j + 1];
+                        }
+                        num_users--;
+                    }
+                }
+            }
         }
     }
 
     close (sock);
+    for (int i = 0; i < num_users; i++) {
+        close(users_fd[i]);
+    }
+
     return 0;
 }
 
@@ -147,7 +226,7 @@ int main(int argc, char *argv[]) {
     header = readHeader(sock);
 
     if (header.type == '1' && strcmp(header.header, "CON_OK") == 0) {
-        close(sock); 
+        //close(sock); 
 
         server = configServer(config.user_ip, config.user_port);
         sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -172,31 +251,6 @@ int main(int argc, char *argv[]) {
         sendError(sock);
         close(sock);
         return -1;
-    }
-
-    printF("Waiting for conections...");
-/*    
-    while (1) {
-        header = readHeader(sock);
-
-        switch (header.type) {
-            case '1':
-            //mandar frames desde el server preguntar
-            break;
-            case '2':
-            break;
-            case '3':
-            case '5':
-            break;
-            case '6':
-            break;
-            case '7':
-                printF(C_BOLDRED);
-                printF("Sent wrong frame\n");
-                printF(C_RESET);
-            break;
-        }
-    }
-  */  
+    } 
     return 0;
 }

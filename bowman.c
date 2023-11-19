@@ -87,9 +87,9 @@ int configConnection(int* sock, struct sockaddr_in* server) {
  *
  ********************************************************************/
 int main(int argc, char *argv[]) {
-    char* buffer = NULL;
-    int sock, connected = 0;
-    struct sockaddr_in server;
+    char* buffer = NULL, *server = NULL;
+    int discovery_sock, poole_sock, connected = 0;
+    struct sockaddr_in discovery, poole;
     Header header;
     signal(SIGINT, sig_handler);
 
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
     config = readConfigBow(argv[1]);
     checkName(&config.user);
 
-    if (configConnection(&sock, &server) == -1) {
+    if (configConnection(&discovery_sock, &discovery) == -1) {
         return -1;
     }
 
@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
                 }
 
 
-                if (connect(sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
+                if (connect(discovery_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
                     printF(C_BOLDRED);
                     printF("Error trying to connect to HAL 9000 system\n");
                     printF(C_RESET);
@@ -145,33 +145,50 @@ int main(int argc, char *argv[]) {
                 free(buffer);
                 buffer = NULL;
                 asprintf(&buffer, T1_BOWMAN, config.user);
-                buffer = sendFrame(buffer, sock);
+                buffer = sendFrame(buffer, discovery_sock);
 
-                header = readHeader(sock);
+                header = readHeader(discovery_sock);
 
                 if (header.type == '1' && strcmp(header.header, "CON_OK") == 0) {
-                    //close(sock); //como cerrarlo
-                    buffer = getString(0, '&', header.data);
-                    char* aux = getString(1 + strlen(buffer), '&', header.data);
-                    server = configServer(aux, atoi(getString(2 + strlen(buffer) + strlen(aux), '\0', header.data)));
+                    //close(discovery_sock); //como cerrarlo
+                    server = getString(0, '&', header.data);
+                    buffer = getString(1 + strlen(server), '&', header.data);
+                    poole = configServer(buffer, atoi(getString(2 + strlen(server) + strlen(buffer), '\0', header.data)));
 
                     free(buffer);
-                    free(aux);
                     buffer = NULL;
-                    aux = NULL;
 
-                    sock = socket(AF_INET, SOCK_STREAM, 0);
+                    poole_sock = socket(AF_INET, SOCK_STREAM, 0);
 
-                    if (connect(sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
+                    if (connect(poole_sock, (struct sockaddr *) &poole, sizeof(poole)) < 0) {
                         printF(C_BOLDRED);
                         printF("Error trying to connect to HAL 9000 system\n");
                         printF(C_RESET);
                         break;
                     }
 
-                    asprintf(&buffer, C_GREEN "%s connected to HAL 9000 system, welcome music lover!\n" C_RESET, config.user);
-                    printF(buffer);
-                    connected = 1;
+                    asprintf(&buffer, T1_BOWMAN, config.user);
+                    buffer = sendFrame(buffer, poole_sock);
+
+                    header = readHeader(poole_sock);
+
+                    if (header.type == '1' && strcmp(header.header, "CON_OK") == 0) {
+                        asprintf(&buffer, C_GREEN "%s connected to HAL 9000 system, welcome music lover!\n" C_RESET, config.user);
+                        printF(buffer);
+                        connected = 1;
+                    }
+                    else if (header.type == '1' && strcmp(header.header, "CON_KO") == 0) {
+                        printF(C_BOLDRED);
+                        printF("Could not establish connection.\n");
+                        printF(C_RESET);
+                    }
+                    else {
+                        printF(C_BOLDRED);
+                        printF("Received wrong frame\n");
+                        printF(C_RESET);
+                        sendError(poole_sock);
+                        //close(sock);
+                    }
                 }
                 else if (header.type == '1' && strcmp(header.header, "CON_KO") == 0) {
                     printF(C_BOLDRED);
@@ -188,28 +205,97 @@ int main(int argc, char *argv[]) {
                     printF(C_BOLDRED);
                     printF("Received wrong frame\n");
                     printF(C_RESET);
-                    sendError(sock);
+                    sendError(discovery_sock);
                     //close(sock);
                 }
                 break;
             case 1:
                 if (connected == 1) {
-                    close(sock);
+                    //cerrar poole sock y mandar frames
+                    //close(poole_sock);
+
+                    asprintf(&buffer, T6, config.user);
+                    buffer = sendFrame(buffer, poole_sock);
+                    header = readHeader(poole_sock);
+                    
+                    asprintf(&buffer, T6, server);
+                    buffer = sendFrame(buffer, discovery_sock);
+                    Header header2 = readHeader(discovery_sock);
+                    if (header.type == '6' && strcmp(header.header, "CON_OK") == 0 && header2.type == '6' && strcmp(header2.header, "CON_OK") == 0) {                    
+                        printF(C_GREEN);
+                        printF("Thanks for using HAL 9000, see you soon, music lover!\n");
+                        printF(C_RESET);
+                        close(poole_sock);
+                        close(discovery_sock);
+                    }
+                    else if ((header.type == '6' && strcmp(header.header, "CON_KO") == 0) || (header2.type == '6' && strcmp(header2.header, "CON_KO") == 0)) {
+                        printF(C_RED);
+                        printF("Could not disconnect from HAL 9000 system\n");
+                        printF(C_RESET);
+                    }
+                    else {
+                        printF(C_BOLDRED);
+                        printF("Received wrong frame\n");
+                        printF(C_RESET);
+                        sendError(poole_sock);
+                    }
                 }
-                printF(C_GREEN);
-                printF("Thanks for using HAL 9000, see you soon, music lover!\n");
-                printF(C_RESET);
+                
                 goto end;
                 break;
             case 2:
-                printF(C_GREEN);
-                printF("OK\n");
-                printF(C_RESET);
+                //list songs
+                if (connected == 0) {
+                    printF(C_RED);
+                    printF("ERROR: Not connected to HAL 9000 system\n");
+                    printF(C_RESET);
+                    break;
+                }
+
+                asprintf(&buffer, T2_SONGS);
+                buffer = sendFrame(buffer, poole_sock);
+
+                header = readHeader(poole_sock);
+                asprintf(&buffer, "%sThere are %s songs available for download:\n%s", C_GREEN, header.data, C_RESET);
+                printF(buffer);
+                free(buffer);
+                buffer = NULL;
+
+                int num_songs = atoi(header.data);
+                for (int i = 0; i < num_songs; i++) {
+                    header = readHeader(poole_sock); //change read header for read songs/playlist function in phase3
+                    asprintf(&buffer, "%d. %s\n", i + 1, header.data);
+                    printF(buffer);
+                    free(buffer);
+                    buffer = NULL;
+                }
                 break;
             case 3:
-                printF(C_GREEN);
-                printF("OK\n");
-                printF(C_RESET);
+                //list playlists
+                if (connected == 0) {
+                    printF(C_RED);
+                    printF("ERROR: Not connected to HAL 9000 system\n");
+                    printF(C_RESET);
+                    break;
+                }
+
+                asprintf(&buffer, T2_PLAYLISTS, 0);
+                buffer = sendFrame(buffer, poole_sock);
+
+                header = readHeader(poole_sock);
+                asprintf(&buffer, "%sThere are %s playlists available for download:\n%s", C_GREEN, header.data, C_RESET);
+                printF(buffer);
+                free(buffer);
+                buffer = NULL;
+
+                int num_playlists = atoi(header.data);
+                for (int i = 0; i < num_playlists; i++) {
+                    header = readHeader(poole_sock); //change read header for read songs/playlist function in phase3
+                    asprintf(&buffer, "%d. %s\n", i + 1, header.data);
+                    printF(buffer);
+                    free(buffer);
+                    buffer = NULL;
+                }
                 break;
             case 4:
                 printF(C_GREEN);

@@ -25,14 +25,12 @@ Server* servers;
 int* clients_fd;
 int num_servers = 0, num_clients = 0;
 
-void connectionHandler(int sock) {
+int connectionHandler(int sock) {
     Header header;
     int least_users = INT_MAX, pos;
     char* buffer = NULL;
 
-    printF("Waiting for frames... \n");
     header = readHeader(sock);
-    printF("Received header\n");
 
     if (header.type == '1') {
         if (strcmp(header.header, "NEW_POOLE") == 0) {
@@ -53,34 +51,24 @@ void connectionHandler(int sock) {
         }
         else if (strcmp(header.header, "NEW_BOWMAN") == 0) {
             least_users = INT_MAX;
-            asprintf(&buffer, "num servers: %d\n", num_servers);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
 
             if (num_servers == 0) {
                 asprintf(&buffer, T1_KO);
                 buffer = sendFrame(buffer, sock);
-                return;
+                return 0;
             }
 
             for (int i = 0; i < num_servers; i++) {
                 if (servers[i].num_users == 0) {
-                    printF("1.1\n");
                     pos = i;
                     break;
                 }
                 else if (least_users > servers[i].num_users) {
-                    printF("1.2\n");
                     least_users = servers[i].num_users;
                     pos = i;
                 }
             }
             servers[pos].num_users++;
-            servers[pos].users = realloc(servers[pos].users, servers[pos].num_users * sizeof(char*));
-            printF("2\n");
-            servers[pos].users[servers[pos].num_users - 1] = getString(0, '\0', header.data);
-            printF("3\n");
             
             asprintf(&buffer, T1_OK_BOW, servers[pos].name, servers[pos].ip, servers[pos].port);
             buffer = sendFrame(buffer, sock);
@@ -88,6 +76,30 @@ void connectionHandler(int sock) {
         else {
             asprintf(&buffer, T1_KO);
             buffer = sendFrame(buffer, sock);
+        }
+    }
+    else if (header.type == '6') {
+        header = readHeader(sock);
+
+        if (header.type == '6' && strcmp(header.header, "EXIT") == 0) {
+            asprintf(&buffer, T6_OK);
+            buffer = sendFrame(buffer, sock);
+            asprintf(&buffer, "User disconnected from server %s\n", header.data);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+
+            for (int i = 0; i < num_servers; i++) {
+                if (strcmp(header.data, servers[i].name) == 0) {
+                    servers[i].num_users--;
+                    break;
+                }
+            }
+            return -1;
+        }
+        else {
+            printF("Wrong frame\n");
+            sendError(sock);
         }
     }
     else if (header.type == '7') {
@@ -99,6 +111,8 @@ void connectionHandler(int sock) {
         printF("Wrong frame\n");
         sendError(sock);
     }
+
+    return 0;
 }
 
 /********************************************************************
@@ -151,6 +165,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    printF("Waiting for connections...\n");
     while (1) {
         FD_ZERO(&readfds);
         FD_SET(poole_sock, &readfds);
@@ -158,8 +173,6 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < num_clients; i++) {
             FD_SET(clients_fd[i], &readfds);
         }
-
-        printF("Waiting for connections...\n");
 
         int ready = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
         
@@ -177,13 +190,22 @@ int main(int argc, char *argv[]) {
                 }
             }
             if (FD_ISSET(bowman_sock, &readfds)) {
+                printF("Waiting for bowman...\n");
                 if (acceptConnection(&num_clients, clients_fd, "bowman", bowman_sock) == -1) {
                     return -1;
                 }
             }
             for (int i = 0; i < num_clients; i++) {
                 if (FD_ISSET(clients_fd[i], &readfds)) {
-                    connectionHandler(clients_fd[i]);
+                    if (connectionHandler(clients_fd[i]) == -1) {
+                        //cerrar sock
+                        close(clients_fd[i]);
+                        FD_CLR(clients_fd[i], &readfds);
+                        for (int j = i; j < num_clients - 1; j++) {
+                            clients_fd[j] = clients_fd[j + 1];
+                        }
+                        num_clients--;
+                    }
                 }
             }
         }

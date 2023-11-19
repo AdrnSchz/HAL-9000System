@@ -17,7 +17,13 @@
 #define T1_OK "106CON_OK"
 #define T1_OK_BOW "106CON_OK%s&%s&%d"
 #define T1_KO "106CON_KO"
-
+#define T2_SONGS "210LIST_SONGS"
+#define T2_PLAYLISTS "214LIST_PLAYLISTS"
+#define T2_SONGS_RESPONSE "214SONGS_RESPONSE%d" //%s = numsongs\0
+#define T2_PLAYLISTS_RESPONSE "218PLAYLISTS_RESPONSE%d" //%s = numplaylist\0
+#define T6 "604EXIT%s"
+#define T6_OK "606CON_OK"
+#define T6_KO "606CON_KO"
 
 /**
  * Structure for storing a header.
@@ -35,7 +41,6 @@ typedef struct {
 typedef struct {
     char* name;
     int num_users;
-    char** users;
     char* ip;
     int port;
 } Server;
