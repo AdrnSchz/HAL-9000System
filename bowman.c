@@ -21,29 +21,8 @@
 #include "connections.h"
 
 User_conf config;
-
-/********************************************************************
-*
-* @Purpose: Handles the SIGINT signal for aborting the program.
-* @Parameters: sigsum - The signal number.
-* @Return: ---
-*
-*******************************************************************/
-void sig_handler(int sigsum) {
-
-    switch(sigsum) {
-        case SIGINT:
-            printF("\nAborting...\n");
-            free(config.user);
-            free(config.files_path);
-            free(config.ip);
-            config.user = NULL;
-            config.files_path = NULL;
-            config.ip = NULL;
-            exit(0);
-            break;
-    }
-}
+int discovery_sock, poole_sock, connected = 0;
+char* server = NULL;
 
 /********************************************************************
  *
@@ -78,6 +57,149 @@ int configConnection(int* sock, struct sockaddr_in* server) {
     return 0;
 }
 
+void connection(struct sockaddr_in poole, struct sockaddr_in discovery) {
+    char* buffer = NULL, *aux = NULL;
+    Frame frame;
+
+    if (connect(discovery_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
+        printF(C_RED);
+        printF("Error trying to connect to HAL 9000 system\n");
+        printF(C_RESET);
+        
+        return;
+    }
+    asprintf(&buffer, T1_BOWMAN, config.user);
+    buffer = sendFrame(buffer, discovery_sock);
+
+    frame = readFrame(discovery_sock);
+
+    if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
+        server = getString(0, '&', frame.data);
+        buffer = getString(1 + strlen(server), '&', frame.data);
+        aux = getString(2 + strlen(server) + strlen(buffer), '\0', frame.data);
+        poole = configServer(buffer, atoi(aux));
+        
+
+        free(buffer);
+        buffer = NULL;
+        free(aux);
+        aux = NULL;
+
+        poole_sock = socket(AF_INET, SOCK_STREAM, 0);
+
+        if (connect(poole_sock, (struct sockaddr *) &poole, sizeof(poole)) < 0) {
+            printF(C_BOLDRED);
+            printF("Error trying to connect to HAL 9000 system\n");
+            printF(C_RESET);
+            return;
+        }
+
+        asprintf(&buffer, T1_BOWMAN, config.user);
+        buffer = sendFrame(buffer, poole_sock);
+        
+        frame = freeFrame(frame);
+        frame = readFrame(poole_sock);
+
+        if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
+            asprintf(&buffer, "%s%s connected to HAL 9000 system, welcome music lover!\n%s", C_GREEN, config.user, C_RESET);
+            printF(buffer);
+            connected = 1;
+            free(buffer);
+            buffer = NULL;
+        }
+        else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
+            printF(C_RED);
+            printF("Could not establish connection.\n");
+            printF(C_RESET);
+        }
+        else {
+            printF(C_RED);
+            printF("Received wrong frame\n");
+            printF(C_RESET);
+            sendError(poole_sock);
+        }
+    }
+    else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
+        printF(C_RED);
+        printF("Could not establish connection.\n");
+        printF(C_RESET);
+    }
+    else if (frame.type == '7') {
+        printF(C_RED);
+        printF("Sent wrong frame\n");
+        printF(C_RESET);
+    }
+    else {
+        printF(C_RED);
+        printF("Received wrong frame\n");
+        printF(C_RESET);
+        sendError(discovery_sock);
+    }
+    frame = freeFrame(frame);
+}
+
+void logout() {
+    char* buffer = NULL;
+    Frame frame, frame2;
+
+    asprintf(&buffer, T6, config.user);
+    buffer = sendFrame(buffer, poole_sock);
+    frame = readFrame(poole_sock);
+    
+    asprintf(&buffer, T6, server);
+    buffer = sendFrame(buffer, discovery_sock);
+    frame2 = readFrame(discovery_sock);
+    if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0 && frame2.type == '6' && strcmp(frame2.header, "CON_OK") == 0) {                    
+        printF(C_GREEN);
+        printF("Thanks for using HAL 9000, see you soon, music lover!\n");
+        printF(C_RESET);
+        close(poole_sock);
+        close(discovery_sock);
+    }
+    else if ((frame.type == '6' && strcmp(frame.header, "CON_KO") == 0) || (frame2.type == '6' && strcmp(frame2.header, "CON_KO") == 0)) {
+        printF(C_RED);
+        printF("Could not disconnect from HAL 9000 system\n");
+        printF(C_RESET);
+    }
+    else {
+        printF(C_RED);
+        printF("Received wrong frame\n");
+        printF(C_RESET);
+        sendError(poole_sock);
+    }
+    frame = freeFrame(frame);
+    frame2 = freeFrame(frame2);
+}
+
+/********************************************************************
+*
+* @Purpose: Handles the SIGINT signal for aborting the program.
+* @Parameters: sigsum - The signal number.
+* @Return: ---
+*
+*******************************************************************/
+void sig_handler(int sigsum) {
+
+    switch(sigsum) {
+        case SIGINT:
+            printF("\nAborting...\n");
+
+            if (connected == 1) {
+                logout();
+            }
+            free(server);
+            server = NULL;
+            free(config.user);
+            free(config.files_path);
+            free(config.ip);
+            config.user = NULL;
+            config.files_path = NULL;
+            config.ip = NULL;
+            exit(0);
+            break;
+    }
+}
+
 /********************************************************************
  *
  * @Purpose: Main function that initializes the Bowman user and handles user interactions.
@@ -87,8 +209,7 @@ int configConnection(int* sock, struct sockaddr_in* server) {
  *
  ********************************************************************/
 int main(int argc, char *argv[]) {
-    char* buffer = NULL, *server = NULL;
-    int discovery_sock, poole_sock, connected = 0;
+    char* buffer = NULL;
     struct sockaddr_in discovery, poole;
     Frame frame;
     signal(SIGINT, sig_handler);
@@ -135,114 +256,14 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
+                connection(poole, discovery);
 
-                if (connect(discovery_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
-                    printF(C_BOLDRED);
-                    printF("Error trying to connect to HAL 9000 system\n");
-                    printF(C_RESET);
-                    
-                    return -1;
-                }
-                asprintf(&buffer, T1_BOWMAN, config.user);
-                buffer = sendFrame(buffer, discovery_sock);
-
-                frame = readFrame(discovery_sock);
-
-                if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
-                    server = getString(0, '&', frame.data);
-                    buffer = getString(1 + strlen(server), '&', frame.data);
-                    char* aux = getString(2 + strlen(server) + strlen(buffer), '\0', frame.data);
-                    poole = configServer(buffer, atoi(aux));
-                    
-
-                    free(buffer);
-                    buffer = NULL;
-                    free(aux);
-                    aux = NULL;
-
-                    poole_sock = socket(AF_INET, SOCK_STREAM, 0);
-
-                    if (connect(poole_sock, (struct sockaddr *) &poole, sizeof(poole)) < 0) {
-                        printF(C_BOLDRED);
-                        printF("Error trying to connect to HAL 9000 system\n");
-                        printF(C_RESET);
-                        break;
-                    }
-
-                    asprintf(&buffer, T1_BOWMAN, config.user);
-                    buffer = sendFrame(buffer, poole_sock);
-                    
-                    frame = freeFrame(frame);
-                    frame = readFrame(poole_sock);
-
-                    if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
-                        asprintf(&buffer, "%s%s connected to HAL 9000 system, welcome music lover!\n%s", C_GREEN, config.user, C_RESET);
-                        printF(buffer);
-                        connected = 1;
-                        free(buffer);
-                        buffer = NULL;
-                    }
-                    else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
-                        printF(C_RED);
-                        printF("Could not establish connection.\n");
-                        printF(C_RESET);
-                    }
-                    else {
-                        printF(C_RED);
-                        printF("Received wrong frame\n");
-                        printF(C_RESET);
-                        sendError(poole_sock);
-                    }
-                }
-                else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
-                    printF(C_RED);
-                    printF("Could not establish connection.\n");
-                    printF(C_RESET);
-                }
-                else if (frame.type == '7') {
-                    printF(C_RED);
-                    printF("Sent wrong frame\n");
-                    printF(C_RESET);
-                }
-                else {
-                    printF(C_RED);
-                    printF("Received wrong frame\n");
-                    printF(C_RESET);
-                    sendError(discovery_sock);
-                }
-                frame = freeFrame(frame);
                 break;
             case 1:
                 free(buffer);
                 buffer = NULL;
                 if (connected == 1) {
-                    asprintf(&buffer, T6, config.user);
-                    buffer = sendFrame(buffer, poole_sock);
-                    frame = readFrame(poole_sock);
-                    
-                    asprintf(&buffer, T6, server);
-                    buffer = sendFrame(buffer, discovery_sock);
-                    Frame frame2 = readFrame(discovery_sock);
-                    if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0 && frame2.type == '6' && strcmp(frame2.header, "CON_OK") == 0) {                    
-                        printF(C_GREEN);
-                        printF("Thanks for using HAL 9000, see you soon, music lover!\n");
-                        printF(C_RESET);
-                        close(poole_sock);
-                        close(discovery_sock);
-                    }
-                    else if ((frame.type == '6' && strcmp(frame.header, "CON_KO") == 0) || (frame2.type == '6' && strcmp(frame2.header, "CON_KO") == 0)) {
-                        printF(C_RED);
-                        printF("Could not disconnect from HAL 9000 system\n");
-                        printF(C_RESET);
-                    }
-                    else {
-                        printF(C_RED);
-                        printF("Received wrong frame\n");
-                        printF(C_RESET);
-                        sendError(poole_sock);
-                    }
-                    frame = freeFrame(frame);
-                    frame2 = freeFrame(frame2);
+                    logout(poole_sock, discovery_sock, server);
                 }
                 
                 goto end;
