@@ -117,6 +117,13 @@ Frame readFrame(int sock);
  ********************************************************************/
 char* sendFrame(char* buffer, int sock);
 
+/********************************************************************
+ *
+ * @Purpose: Frees the memory inside a Frame data structure.
+ * @Parameters: frame - The frame structure to be freed.
+ * @Return: The the frame freed.
+ *
+ ********************************************************************/
 Frame freeFrame(Frame frame);
 
 #endif

@@ -57,6 +57,14 @@ int configConnection(int* sock, struct sockaddr_in* server) {
     return 0;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Connect and ask discovery for a server and connect to the given server
+ * @Parameters: poole - sockaddr_in with the configuration to connect to the poole server.
+ *              discovery - sockaddr_in with the configuration to connect to the discovery server.
+ * @Return: ---
+ *
+ ********************************************************************/
 void connection(struct sockaddr_in poole, struct sockaddr_in discovery) {
     char* buffer = NULL, *aux = NULL;
     Frame frame;
@@ -138,6 +146,12 @@ void connection(struct sockaddr_in poole, struct sockaddr_in discovery) {
     frame = freeFrame(frame);
 }
 
+/********************************************************************
+ *
+ * @Purpose: Logout from the poole
+ * @Return: ---
+ *
+ ********************************************************************/
 void logout() {
     char* buffer = NULL;
     Frame frame, frame2;
