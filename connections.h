@@ -34,7 +34,7 @@ typedef struct {
     char length[3];
     char* header;
     char* data;
-} Header;
+} Frame;
 
 /**
  * Structure for storing a server.
@@ -105,7 +105,7 @@ void sendError(int sock);
  * @Return: The parsed header structure.
  *
  ********************************************************************/
-Header readHeader(int sock);
+Frame readFrame(int sock);
 
 /********************************************************************
  *
@@ -116,5 +116,7 @@ Header readHeader(int sock);
  *
  ********************************************************************/
 char* sendFrame(char* buffer, int sock);
+
+Frame freeFrame(Frame frame);
 
 #endif

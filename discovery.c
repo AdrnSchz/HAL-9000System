@@ -34,19 +34,19 @@ int num_servers = 0, num_clients = 0;
  *
  ********************************************************************/
 int connectionHandler(int sock) {
-    Header header;
+    Frame frame;
     int least_users = INT_MAX, pos;
     char* buffer = NULL;
 
-    header = readHeader(sock);
+    frame = readFrame(sock);
 
-    if (header.type == '1') {
-        if (strcmp(header.header, "NEW_POOLE") == 0) {
+    if (frame.type == '1') {
+        if (strcmp(frame.header, "NEW_POOLE") == 0) {
             num_servers++;
             servers = realloc(servers, num_servers * sizeof(Server));
-            servers[num_servers - 1].name = getString(0, '&', header.data);
-            servers[num_servers - 1].ip = getString(1 + strlen(servers[num_servers - 1].name), '&', header.data);
-            servers[num_servers - 1].port = atoi(getString(2 + strlen(servers[num_servers - 1].name) + strlen(servers[num_servers - 1].ip), '\0', header.data));
+            servers[num_servers - 1].name = getString(0, '&', frame.data);
+            servers[num_servers - 1].ip = getString(1 + strlen(servers[num_servers - 1].name), '&', frame.data);
+            servers[num_servers - 1].port = atoi(getString(2 + strlen(servers[num_servers - 1].name) + strlen(servers[num_servers - 1].ip), '\0', frame.data));
             servers[num_servers - 1].num_users = 0;
 
             asprintf(&buffer ,"New poole server registered: %s - IP: %s - Port: %d\n", servers[num_servers - 1].name, servers[num_servers - 1].ip, servers[num_servers - 1].port);
@@ -59,7 +59,7 @@ int connectionHandler(int sock) {
 
             return -1;
         }
-        else if (strcmp(header.header, "NEW_BOWMAN") == 0) {
+        else if (strcmp(frame.header, "NEW_BOWMAN") == 0) {
             least_users = INT_MAX;
 
             if (num_servers == 0) {
@@ -88,23 +88,23 @@ int connectionHandler(int sock) {
             buffer = sendFrame(buffer, sock);
         }
     }
-    else if (header.type == '6' && strcmp(header.header, "EXIT") == 0) {
+    else if (frame.type == '6' && strcmp(frame.header, "EXIT") == 0) {
             asprintf(&buffer, T6_OK);
             buffer = sendFrame(buffer, sock);
-            asprintf(&buffer, "\n%sUser disconnected from server %s%s\n", C_RED, header.data, C_RESET);
+            asprintf(&buffer, "\n%sUser disconnected from server %s%s\n", C_RED, frame.data, C_RESET);
             printF(buffer);
             free(buffer);
             buffer = NULL;
 
             for (int i = 0; i < num_servers; i++) {
-                if (strcmp(header.data, servers[i].name) == 0) {
+                if (strcmp(frame.data, servers[i].name) == 0) {
                     servers[i].num_users--;
                     break;
                 }
             }
             return -1;
     }
-    else if (header.type == '7') {
+    else if (frame.type == '7') {
         printF(C_BOLDRED);
         printF("Sent wrong frame\n");
         printF(C_RESET);

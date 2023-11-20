@@ -16,7 +16,7 @@ bowman.o: bowman.c
 	gcc -Wall -Wextra -g -c bowman.c -o bowman.o
 
 poole.o: poole.c
-	gcc -Wall -Wextra -g -c poole.c -o poole.o
+	gcc -g -c -Wall -Wextra poole.c -o poole.o
 
 discovery.o: discovery.c
 	gcc -Wall -Wextra -g -c discovery.c -o discovery.o

@@ -87,8 +87,8 @@ void sendError(int sock) {
     write(sock, buffer, 256);
 }
 
-Header readHeader(int sock) {
-    Header header;
+Frame readFrame(int sock) {
+    Frame frame;
     char* buffer = (char*) malloc(256);
     int i, j;
 
@@ -96,22 +96,22 @@ Header readHeader(int sock) {
     //printF("Received frame: ");
     //printF(buffer);
     //printF("\n");
-    header.type = buffer[0];
-    header.length[0] = buffer[1];
-    header.length[1] = buffer[2];
-    header.length[2] = '\0';
-    header.header = (char*) malloc((atoi(header.length) + 1)* sizeof(char));
-    for (i = 0; i < atoi(header.length); i++) {
-        header.header[i] = buffer[i + 3];
+    frame.type = buffer[0];
+    frame.length[0] = buffer[1];
+    frame.length[1] = buffer[2];
+    frame.length[2] = '\0';
+    frame.header = (char*) malloc((atoi(frame.length) + 1)* sizeof(char));
+    for (i = 0; i < atoi(frame.length); i++) {
+        frame.header[i] = buffer[i + 3];
     }
-    header.header[i] = '\0';
-    header.data = (char*) malloc(strlen(buffer) - i - 2);
+    frame.header[i] = '\0';
+    frame.data = (char*) malloc(strlen(buffer) - i - 2);
     for (j = 0; buffer[j + i + 3] != '\0'; j++) {
-        header.data[j] = buffer[j + i + 3];
+        frame.data[j] = buffer[j + i + 3];
     }
-    header.data[j] = '\0';
+    frame.data[j] = '\0';
 
-    return header;
+    return frame;
 }
 
 char* sendFrame(char* buffer, int sock) {
@@ -128,4 +128,13 @@ char* sendFrame(char* buffer, int sock) {
     buffer = NULL;
 
     return buffer;
+}
+
+Frame freeFrame(Frame frame) {
+    free(frame.header);
+    free(frame.data);
+    frame.header = NULL;
+    frame.data = NULL;
+
+    return frame;
 }

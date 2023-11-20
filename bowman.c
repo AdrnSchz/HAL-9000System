@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
     char* buffer = NULL, *server = NULL;
     int discovery_sock, poole_sock, connected = 0;
     struct sockaddr_in discovery, poole;
-    Header header;
+    Frame frame;
     signal(SIGINT, sig_handler);
 
     if (argc != 2) {
@@ -147,16 +147,19 @@ int main(int argc, char *argv[]) {
                 asprintf(&buffer, T1_BOWMAN, config.user);
                 buffer = sendFrame(buffer, discovery_sock);
 
-                header = readHeader(discovery_sock);
+                frame = readFrame(discovery_sock);
 
-                if (header.type == '1' && strcmp(header.header, "CON_OK") == 0) {
-                    //close(discovery_sock); //como cerrarlo
-                    server = getString(0, '&', header.data);
-                    buffer = getString(1 + strlen(server), '&', header.data);
-                    poole = configServer(buffer, atoi(getString(2 + strlen(server) + strlen(buffer), '\0', header.data)));
+                if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
+                    server = getString(0, '&', frame.data);
+                    buffer = getString(1 + strlen(server), '&', frame.data);
+                    char* aux = getString(2 + strlen(server) + strlen(buffer), '\0', frame.data);
+                    poole = configServer(buffer, atoi(aux));
+                    
 
                     free(buffer);
                     buffer = NULL;
+                    free(aux);
+                    aux = NULL;
 
                     poole_sock = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -169,15 +172,16 @@ int main(int argc, char *argv[]) {
 
                     asprintf(&buffer, T1_BOWMAN, config.user);
                     buffer = sendFrame(buffer, poole_sock);
+                    
+                    frame = freeFrame(frame);
+                    frame = readFrame(poole_sock);
 
-                    header = readHeader(poole_sock);
-
-                    if (header.type == '1' && strcmp(header.header, "CON_OK") == 0) {
+                    if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
                         asprintf(&buffer, C_GREEN "%s connected to HAL 9000 system, welcome music lover!\n" C_RESET, config.user);
                         printF(buffer);
                         connected = 1;
                     }
-                    else if (header.type == '1' && strcmp(header.header, "CON_KO") == 0) {
+                    else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
                         printF(C_RED);
                         printF("Could not establish connection.\n");
                         printF(C_RESET);
@@ -187,48 +191,45 @@ int main(int argc, char *argv[]) {
                         printF("Received wrong frame\n");
                         printF(C_RESET);
                         sendError(poole_sock);
-                        //close(sock);
                     }
                 }
-                else if (header.type == '1' && strcmp(header.header, "CON_KO") == 0) {
+                else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
                     printF(C_RED);
                     printF("Could not establish connection.\n");
                     printF(C_RESET);
                 }
-                else if (header.type == '7') {
+                else if (frame.type == '7') {
                     printF(C_RED);
                     printF("Sent wrong frame\n");
                     printF(C_RESET);
-                    //close(sock);
                 }
                 else {
                     printF(C_RED);
                     printF("Received wrong frame\n");
                     printF(C_RESET);
                     sendError(discovery_sock);
-                    //close(sock);
                 }
+                frame = freeFrame(frame);
                 break;
             case 1:
+                free(buffer);
+                buffer = NULL;
                 if (connected == 1) {
-                    //cerrar poole sock y mandar frames
-                    //close(poole_sock);
-
                     asprintf(&buffer, T6, config.user);
                     buffer = sendFrame(buffer, poole_sock);
-                    header = readHeader(poole_sock);
+                    frame = readFrame(poole_sock);
                     
                     asprintf(&buffer, T6, server);
                     buffer = sendFrame(buffer, discovery_sock);
-                    Header header2 = readHeader(discovery_sock);
-                    if (header.type == '6' && strcmp(header.header, "CON_OK") == 0 && header2.type == '6' && strcmp(header2.header, "CON_OK") == 0) {                    
+                    Frame frame2 = readFrame(discovery_sock);
+                    if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0 && frame2.type == '6' && strcmp(frame2.header, "CON_OK") == 0) {                    
                         printF(C_GREEN);
                         printF("Thanks for using HAL 9000, see you soon, music lover!\n");
                         printF(C_RESET);
                         close(poole_sock);
                         close(discovery_sock);
                     }
-                    else if ((header.type == '6' && strcmp(header.header, "CON_KO") == 0) || (header2.type == '6' && strcmp(header2.header, "CON_KO") == 0)) {
+                    else if ((frame.type == '6' && strcmp(frame.header, "CON_KO") == 0) || (frame2.type == '6' && strcmp(frame2.header, "CON_KO") == 0)) {
                         printF(C_RED);
                         printF("Could not disconnect from HAL 9000 system\n");
                         printF(C_RESET);
@@ -239,6 +240,8 @@ int main(int argc, char *argv[]) {
                         printF(C_RESET);
                         sendError(poole_sock);
                     }
+                    frame = freeFrame(frame);
+                    frame2 = freeFrame(frame2);
                 }
                 
                 goto end;
@@ -251,24 +254,29 @@ int main(int argc, char *argv[]) {
                     printF(C_RESET);
                     break;
                 }
-
+                
+                free(buffer);
+                buffer = NULL;
                 asprintf(&buffer, T2_SONGS);
                 buffer = sendFrame(buffer, poole_sock);
 
-                header = readHeader(poole_sock);
-                asprintf(&buffer, "%sThere are %s songs available for download:\n%s", C_GREEN, header.data, C_RESET);
+                frame = readFrame(poole_sock);
+                asprintf(&buffer, "%sThere are %s songs available for download:\n%s", C_GREEN, frame.data, C_RESET);
                 printF(buffer);
                 free(buffer);
                 buffer = NULL;
 
-                int num_songs = atoi(header.data);
+                int num_songs = atoi(frame.data);
                 for (int i = 0; i < num_songs; i++) {
-                    header = readHeader(poole_sock); //change read header for read songs/playlist function in phase3
-                    asprintf(&buffer, "%d. %s\n", i + 1, header.data);
+                    frame = freeFrame(frame);
+                    frame = readFrame(poole_sock); //change read header for read songs/playlist function in phase3
+                    asprintf(&buffer, "%d. %s\n", i + 1, frame.data);
                     printF(buffer);
                     free(buffer);
                     buffer = NULL;
                 }
+
+                frame = freeFrame(frame);
                 break;
             case 3:
                 //list playlists
@@ -279,63 +287,74 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
+                free(buffer);
+                buffer = NULL;
                 asprintf(&buffer, T2_PLAYLISTS);
                 buffer = sendFrame(buffer, poole_sock);
 
-                header = readHeader(poole_sock);
-                asprintf(&buffer, "%sThere are %s playlists available for download:\n%s", C_GREEN, header.data, C_RESET);
+                frame = readFrame(poole_sock);
+                asprintf(&buffer, "%sThere are %s playlists available for download:\n%s", C_GREEN, frame.data, C_RESET);
                 printF(buffer);
                 free(buffer);
                 buffer = NULL;
 
-                int num_playlists = atoi(header.data);
+                int num_playlists = atoi(frame.data);
                 for (int i = 0; i < num_playlists; i++) {
-                    header = readHeader(poole_sock); //change read header for read songs/playlist function in phase3
-                    asprintf(&buffer, "%d. %s\n", i + 1, header.data);
+                    frame = freeFrame(frame);
+                    frame = readFrame(poole_sock); //change read header for read songs/playlist function in phase3
+                    asprintf(&buffer, "%d. %s\n", i + 1, frame.data);
                     printF(buffer);
                     free(buffer);
                     buffer = NULL;
                 }
+                frame = freeFrame(frame);
                 break;
             case 4:
+                free(buffer);
+                buffer = NULL;
                 printF(C_GREEN);
                 printF("OK\n");
                 printF(C_RESET);
                 break;
             case 5:
+                free(buffer);
+                buffer = NULL;
                 printF(C_GREEN);
                 printF("OK\n");
                 printF(C_RESET);
                 break;
             case 6:
+                free(buffer);
+                buffer = NULL;
                 printF(C_GREEN);
                 printF("OK\n");
                 printF(C_RESET);
                 break;
             case 7:
+                free(buffer);
+                buffer = NULL;
                 printF(C_RED);
                 //printF("KO\n");
                 printF("Unknown command.\n");
                 printF(C_RESET);
                 break;
             default:
+                free(buffer);
+                buffer = NULL;
                 printF(C_RED);
                 //printF("KO\n");
                 printF("ERROR: Please input a valid command.\n");
                 printF(C_RESET);
                 break;
         }
-
-        free(buffer);
-        buffer = NULL;
     }
 
     end:
-    free(buffer);
+    free(server);
+    server = NULL;
     free(config.user);
     free(config.files_path);
     free(config.ip);
-    buffer = NULL;
     config.user = NULL;
     config.files_path = NULL;
     config.ip = NULL;

@@ -103,7 +103,7 @@ int checkCommand(char* buffer) {
     size_t i = 0, j, correct;
     int error;
     char commands[7][20] = {"CONNECT", "LOGOUT", "LIST SONGS", "LIST PLAYLISTS", "DOWNLOAD", "CHECK DOWNLOADS", "CLEAR DOWNLOADS"};
-    char* command = (char*) malloc(sizeof(char) * strlen(buffer));
+    char* command = (char*) malloc(sizeof(char) * (strlen(buffer) + 1));
     
     strcpy(command, buffer);
     capitalize(&command);
@@ -169,8 +169,8 @@ char* getString(int from, char until, char* string) {
 
     for (int i = from; string[i] != until; i++) {
         buffer[j] = string[i];
-        buffer = (char*) realloc(buffer, sizeof(char) * (j + 1));
         j++;
+        buffer = (char*) realloc(buffer, sizeof(char) * (j + 1));
     }
     buffer[j] = '\0';
     
