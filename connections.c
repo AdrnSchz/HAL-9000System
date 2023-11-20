@@ -111,6 +111,9 @@ Frame readFrame(int sock) {
     }
     frame.data[j] = '\0';
 
+    free(buffer);
+    buffer = NULL;
+
     return frame;
 }
 

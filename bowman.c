@@ -126,6 +126,8 @@ int main(int argc, char *argv[]) {
         printF(C_RESET);
         switch (checkCommand(buffer)) {
             case 0:
+                free(buffer);
+                buffer = NULL;
                 if (connected == 1) {
                     printF(C_RED);
                     printF("ERROR: Already connected to HAL 9000 system\n");
@@ -141,9 +143,6 @@ int main(int argc, char *argv[]) {
                     
                     return -1;
                 }
-
-                free(buffer);
-                buffer = NULL;
                 asprintf(&buffer, T1_BOWMAN, config.user);
                 buffer = sendFrame(buffer, discovery_sock);
 
@@ -177,9 +176,11 @@ int main(int argc, char *argv[]) {
                     frame = readFrame(poole_sock);
 
                     if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
-                        asprintf(&buffer, C_GREEN "%s connected to HAL 9000 system, welcome music lover!\n" C_RESET, config.user);
+                        asprintf(&buffer, "%s%s connected to HAL 9000 system, welcome music lover!\n%s", C_GREEN, config.user, C_RESET);
                         printF(buffer);
                         connected = 1;
+                        free(buffer);
+                        buffer = NULL;
                     }
                     else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
                         printF(C_RED);
@@ -248,6 +249,8 @@ int main(int argc, char *argv[]) {
                 break;
             case 2:
                 //list songs
+                free(buffer);
+                buffer = NULL;
                 if (connected == 0) {
                     printF(C_RED);
                     printF("ERROR: Not connected to HAL 9000 system\n");
@@ -255,8 +258,6 @@ int main(int argc, char *argv[]) {
                     break;
                 }
                 
-                free(buffer);
-                buffer = NULL;
                 asprintf(&buffer, T2_SONGS);
                 buffer = sendFrame(buffer, poole_sock);
 
@@ -280,15 +281,15 @@ int main(int argc, char *argv[]) {
                 break;
             case 3:
                 //list playlists
+                free(buffer);
+                buffer = NULL;
                 if (connected == 0) {
                     printF(C_RED);
                     printF("ERROR: Not connected to HAL 9000 system\n");
                     printF(C_RESET);
                     break;
                 }
-
-                free(buffer);
-                buffer = NULL;
+                
                 asprintf(&buffer, T2_PLAYLISTS);
                 buffer = sendFrame(buffer, poole_sock);
 
