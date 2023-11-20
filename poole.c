@@ -148,7 +148,7 @@ static int listenConnections(int sock) {
         }
         else {
             if (FD_ISSET(sock, &readfds)) {
-                if (acceptConnection(&num_users, users_fd, "bowman", sock, 0) == -1) {
+                if (acceptConnection(&num_users, &users_fd, "bowman", sock, 0) == -1) {
                     return -1;
                 }
                 users = (char**) realloc(users, sizeof(char*) * num_users);

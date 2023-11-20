@@ -188,12 +188,12 @@ int main(int argc, char *argv[]) {
         }
         else {
             if (FD_ISSET(poole_sock, &readfds)) {
-                if (acceptConnection(&num_clients, clients_fd, "poole", poole_sock, 1) == -1) {
+                if (acceptConnection(&num_clients, &clients_fd, "poole", poole_sock, 1) == -1) {
                     return -1;
                 }
             }
             if (FD_ISSET(bowman_sock, &readfds)) {
-                if (acceptConnection(&num_clients, clients_fd, "bowman", bowman_sock, 1) == -1) {
+                if (acceptConnection(&num_clients, &clients_fd, "bowman", bowman_sock, 1) == -1) {
                     return -1;
                 }
             }

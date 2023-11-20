@@ -38,14 +38,14 @@ int openConnection(int sock, struct sockaddr_in server, char* server_type) {
     return 0;
 }
 
-int acceptConnection(int* num_clients, int* clients_fd, char* server_type, int sock, int isDiscovery) {
+int acceptConnection(int* num_clients, int** clients_fd, char* server_type, int sock, int isDiscovery) {
     char* buffer;
     struct sockaddr_in client_addr; 
     socklen_t client_len = sizeof(client_addr);
 
-    clients_fd[*num_clients] = accept(sock, (struct sockaddr *) &client_addr, &client_len);
+    *clients_fd[*num_clients] = accept(sock, (struct sockaddr *) &client_addr, &client_len);
 
-    if (clients_fd[*num_clients] < 0) {
+    if (*clients_fd[*num_clients] < 0) {
         asprintf(&buffer, "%sError accepting %s socket connection\n%s", C_BOLDRED, server_type, C_RESET);
         printF(buffer);
         free(buffer);
@@ -61,7 +61,7 @@ int acceptConnection(int* num_clients, int* clients_fd, char* server_type, int s
     }
 
     *num_clients = *num_clients + 1;
-    clients_fd = (int*) realloc(clients_fd, sizeof(int) * (*num_clients + 1));
+    *clients_fd = (int*) realloc(*clients_fd, sizeof(int) * (*num_clients + 1));
 
     return 0;
 }
