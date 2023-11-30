@@ -31,6 +31,7 @@
 int bowmanHandler(int sock, int user_pos, char** users, Server_conf config) {
     Frame frame;
     char* buffer = NULL;
+    char* toPrint;
 
     frame = readFrame(sock);
 
@@ -60,18 +61,50 @@ int bowmanHandler(int sock, int user_pos, char** users, Server_conf config) {
             free(file);
             file = NULL;
 
-            asprintf(&buffer, T2_SONGS_RESPONSE, num_songs); 
-            buffer = sendFrame(buffer, sock);
+            //char* num_songs_str = itoa(num_songs, 10);
+ 
+            //buffer = (char*)malloc(256);
+            asprintf(&buffer, T2_SONGS_RESPONSE, "4#");
+            //buffer = sendFrame(buffer, sock);
+            int buffer_length = strlen(buffer);
+            int remaining_space = 256 - buffer_length - 1;
+            asprintf(&toPrint, "Remaining space: %d\n", remaining_space);
+            printF(toPrint);
+            free(toPrint);
 
             for (int i = 0; i < num_songs; i++) {
-                //poner songs hasta 256 bytes
-                //mandar frame
-                //vaciar frame
-                //rellenar frame type, length, header
-                // volver a inicio y poner songs otra vez 
-                printF(songs[i]);
-                printF("\n");
+                int song_length = strlen(songs[i]);
+                
+                if (song_length <= remaining_space) {
+                    if (i != 0) {
+                        asprintf(&toPrint, "Next size: %d\n", buffer_length + 1);
+                        printF(toPrint);
+                        free(toPrint);
+                        //buffer = realloc(buffer, buffer_length + 1);
+                        buffer[buffer_length] = '&';
+                        buffer_length++;
+                        remaining_space -= 1;
+                        asprintf(&toPrint, "Remaining space: %d\n", remaining_space);
+                        printF(toPrint);
+                        free(toPrint);
+                    }
+                    //buffer = realloc(buffer, buffer_length + song_length);
+                    strcpy(buffer + buffer_length, songs[i]);
+                    printF(buffer);
+                    buffer_length += song_length;
+                    asprintf(&toPrint, "Current size: %d\n", buffer_length );
+                    printF(toPrint);
+                    free(toPrint);
+                    remaining_space -= song_length;
+                    asprintf(&toPrint, "Remaining space: %d\n", remaining_space);
+                    printF(toPrint);
+                    free(toPrint);                   
+                }
             }
+            printF("5\n");
+            buffer = sendFrame(buffer, sock);
+            printF("6\n");
+            printF(buffer);
         }
         else if (strcmp(frame.header, "LIST_PLAYLISTS") == 0) {
             asprintf(&buffer, "\n%sNew request - %s requires the list of playlists.\n%sSending playlist list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
