@@ -28,7 +28,7 @@
  * @Return: 0 on success, -1 on user disconnection or error.
  *
  ********************************************************************/
-int bowmanHandler(int sock, int user_pos, char** users) {
+int bowmanHandler(int sock, int user_pos, char** users, Server_conf config) {
     Frame frame;
     char* buffer = NULL;
 
@@ -47,42 +47,58 @@ int bowmanHandler(int sock, int user_pos, char** users) {
     }
     else if (frame.type == '2') {
         if (strcmp(frame.header, "LIST_SONGS") == 0) {
-            asprintf(&buffer, "\n%sNew request – %s requires the list of songs.\n%sSending song list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
+            asprintf(&buffer, "\n%sNew request - %s requires the list of songs.\n%sSending song list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
             printF(buffer);
             free(buffer);
             buffer = NULL;
 
             //get number of songs and songs
+            int num_songs = 0;
+            char* file;
+            asprintf(&file, "%s/songs.txt", config.path); 
+            char** songs = readSongs(file, &num_songs);
+            free(file);
+            file = NULL;
 
-            asprintf(&buffer, T2_SONGS_RESPONSE, 0); //0 will be the num of songs to be sent
+            asprintf(&buffer, T2_SONGS_RESPONSE, num_songs); 
             buffer = sendFrame(buffer, sock);
 
-            for (int i = 0; i < 0; i++) { //0 will be the num of songs to be sent
-                char end = '&';
-                if (i == 0) {
-                    end = '\0';
-                }
-                asprintf(&buffer, "name of song%c", end); 
-                buffer = sendFrame(buffer, sock);
+            for (int i = 0; i < num_songs; i++) {
+                //poner songs hasta 256 bytes
+                //mandar frame
+                //vaciar frame
+                //rellenar frame type, length, header
+                // volver a inicio y poner songs otra vez 
+                printF(songs[i]);
+                printF("\n");
             }
         }
         else if (strcmp(frame.header, "LIST_PLAYLISTS") == 0) {
-            asprintf(&buffer, "\n%sNew request – %s requires the list of playlists.\n%sSending playlist list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
+            asprintf(&buffer, "\n%sNew request - %s requires the list of playlists.\n%sSending playlist list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
             printF(buffer);
             free(buffer);
             buffer = NULL;
-            //get number of playlists and songs
 
-            asprintf(&buffer, T2_PLAYLISTS_RESPONSE, 0); //0 will be the num of songs to be sent
+            //get number of playlists and songs
+            int num_playlists = 0;
+            char* file;
+            asprintf(&file, "%s/playlists.txt", config.path); 
+            Playlist* playlists = readPlaylists(file, &num_playlists);
+            free(file);
+            file = NULL;
+
+            asprintf(&buffer, T2_PLAYLISTS_RESPONSE"#%d", num_playlists, playlists[0].num_songs); 
             buffer = sendFrame(buffer, sock);
 
-            for (int i = 0; i < 0; i++) { //0 will be the num of songs to be sent
-                char end = '&';
-                if (i == 0) {
-                    end = '\0';
+            for (int i = 0; i < num_playlists; i++) {
+                //poner name playlist
+                for (int j = 0; j < playlists[i].num_songs; j++) {
+                    //poner songs hasta 256 bytes
+                    //mandar frame
+                    //vaciar frame
+                    //rellenar frame type, length, header
+                    // volver a inicio y poner songs otra vez 
                 }
-                asprintf(&buffer, "name of playlist%c", end); 
-                buffer = sendFrame(buffer, sock);
             }
         }
         else {
@@ -122,7 +138,7 @@ int bowmanHandler(int sock, int user_pos, char** users) {
  * @Return: 0 on success, -1 on error.
  *
  ********************************************************************/
-static int listenConnections(int sock) {
+static int listenConnections(int sock, Server_conf config) {
     fd_set readfds;
     int* users_fd = (int*) malloc(sizeof(int));
     int num_users = 0;
@@ -155,7 +171,7 @@ static int listenConnections(int sock) {
             }
             for (int i = 0; i < num_users; i++) {
                 if (FD_ISSET(users_fd[i], &readfds)) {
-                    if (bowmanHandler(users_fd[i], i, users) == -1) {
+                    if (bowmanHandler(users_fd[i], i, users, config) == -1) {
                         //cerrar sock
                         close(users_fd[i]);
                         FD_CLR(users_fd[i], &readfds);
@@ -259,7 +275,7 @@ int main(int argc, char *argv[]) {
         free(buffer);
         buffer = NULL;
 
-        if (listenConnections(sock) == -1) {
+        if (listenConnections(sock, config) == -1) {
             return -1;
         }
     }

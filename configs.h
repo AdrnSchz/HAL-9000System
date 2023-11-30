@@ -43,9 +43,12 @@ typedef struct {
     int port_bow;
 } Disc_conf;
 
+/**
+ * Structure for storing plalist data.
+*/
 typedef struct {
     int num_songs;
-    char** playlist;
+    char* name;
     char** songs;
 } Playlist;
 
@@ -76,6 +79,16 @@ User_conf readConfigBow(char* file);
  ********************************************************************/
 Server_conf readConfigPol(char* file);
 
+/********************************************************************
+ *
+ * @Purpose: Reads the configuration of the songs.
+ * @Parameters: file - The path to the configuration file.
+  *          
+ * @Return: The Server_conf structure with the configuration file data.
+ *
+ ********************************************************************/
 char **readSongs(char* file, int *num_songs);
+
+Playlist* readPlaylists(char* file, int *num_playlists);
 
 #endif

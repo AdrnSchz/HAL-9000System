@@ -107,9 +107,8 @@ char **readSongs(char* file, int *num_songs) {
     return songs;
 }
 
-Playlist readPlaylists(char* file, int *num_playlists) {
+Playlist* readPlaylists(char* file, int *num_playlists) {
     Playlist *playlist;
-    char **songs;
     int fd_config;
     char *buffer;
 
@@ -123,12 +122,12 @@ Playlist readPlaylists(char* file, int *num_playlists) {
     }
 
     readNum(fd_config, num_playlists);
-    playlist = (char**) malloc(sizeof(char*) * (*num_playlists));
+    playlist = (Playlist*) malloc(sizeof(Playlist) * (*num_playlists));
 
     for (int i = 0; i < *num_playlists; i++) {
-        readNum(fd_config, playlist[i].num_songs);
-        songs = (char**) malloc(sizeof(char*) * (playlist[i].num_songs));
-        readLine(fd_config, &playlist[i].playlist[i]);
+        readNum(fd_config, &playlist[i].num_songs);
+        playlist[i].songs = (char**) malloc(sizeof(char*) * (playlist[i].num_songs));
+        readLine(fd_config, &playlist[i].name);
         for (int j = 0; j < playlist[i].num_songs; j++) {
             readLine(fd_config, &playlist[i].songs[j]);
         }
@@ -136,5 +135,5 @@ Playlist readPlaylists(char* file, int *num_playlists) {
     
     close(fd_config);
 
-    return *playlist;
+    return playlist;
 }
