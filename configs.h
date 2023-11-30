@@ -43,6 +43,12 @@ typedef struct {
     int port_bow;
 } Disc_conf;
 
+typedef struct {
+    int num_songs;
+    char** playlist;
+    char** songs;
+} Playlist;
+
 /********************************************************************
  *
  * @Purpose: Reads the configuration from a file and initializes the Disc_conf structure.
@@ -69,5 +75,7 @@ User_conf readConfigBow(char* file);
  *
  ********************************************************************/
 Server_conf readConfigPol(char* file);
+
+char **readSongs(char* file, int *num_songs);
 
 #endif

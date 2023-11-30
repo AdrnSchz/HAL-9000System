@@ -81,3 +81,60 @@ Server_conf readConfigPol(char* file) {
 
     return config;
 }
+
+char **readSongs(char* file, int *num_songs) {
+    char **songs;
+    int fd_config;
+    char *buffer;
+
+    fd_config = open(file, O_RDONLY);
+
+    if (fd_config == -1) {
+        asprintf(&buffer,C_BOLDRED "EROOR: %s not found.\n" C_RESET, file);
+        printF(buffer);
+        free(buffer);
+        exit(-1);
+    }
+    
+    readNum(fd_config, num_songs);
+    songs = (char**) malloc(sizeof(char*) * (*num_songs));
+    for (int i = 0; i < *num_songs; i++) {
+        readLine(fd_config, &songs[i]);
+    }
+
+    close(fd_config);
+
+    return songs;
+}
+
+Playlist readPlaylists(char* file, int *num_playlists) {
+    Playlist *playlist;
+    char **songs;
+    int fd_config;
+    char *buffer;
+
+    fd_config = open(file, O_RDONLY);
+
+    if (fd_config == -1) {
+        asprintf(&buffer,C_BOLDRED "EROOR: %s not found.\n" C_RESET, file);
+        printF(buffer);
+        free(buffer);
+        exit(-1);
+    }
+
+    readNum(fd_config, num_playlists);
+    playlist = (char**) malloc(sizeof(char*) * (*num_playlists));
+
+    for (int i = 0; i < *num_playlists; i++) {
+        readNum(fd_config, playlist[i].num_songs);
+        songs = (char**) malloc(sizeof(char*) * (playlist[i].num_songs));
+        readLine(fd_config, &playlist[i].playlist[i]);
+        for (int j = 0; j < playlist[i].num_songs; j++) {
+            readLine(fd_config, &playlist[i].songs[j]);
+        }
+    }
+    
+    close(fd_config);
+
+    return *playlist;
+}
