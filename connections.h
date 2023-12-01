@@ -20,7 +20,7 @@
 #define T1_KO "106CON_KO"
 #define T2_SONGS "210LIST_SONGS"
 #define T2_PLAYLISTS "214LIST_PLAYLISTS"
-#define T2_SONGS_RESPONSE "214SONGS_RESPONSE%d" //%s = numsongs\0
+#define T2_SONGS_RESPONSE "214SONGS_RESPONSE%s" //%s = numsongs#song1&song2&...&songN\0
 #define T2_PLAYLISTS_RESPONSE "218PLAYLISTS_RESPONSE%d" //%s = numplaylist\0
 #define T6 "604EXIT%s"
 #define T6_OK "606CON_OK"

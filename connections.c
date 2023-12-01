@@ -121,7 +121,7 @@ char* sendFrame(char* buffer, int sock) {
     int len = strlen(buffer);
     buffer = (char*) realloc(buffer, 256);
     for (int i = len; i < 256; i++) {
-            buffer[i] = '\0';
+        buffer[i] = '\0';
     }
     write(sock, buffer, 256);
     //printF("Sending frame: ");
