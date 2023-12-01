@@ -21,8 +21,8 @@
 #include "connections.h"
 
 User_conf config;
-int discovery_sock, poole_sock, connected = 0;
-char* server = NULL;
+int discovery_sock, poole_sock = 0;
+char* server_name = NULL;
 
 /********************************************************************
  *
@@ -82,9 +82,9 @@ void connection(struct sockaddr_in poole, struct sockaddr_in discovery) {
     frame = readFrame(discovery_sock);
 
     if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
-        server = getString(0, '&', frame.data);
-        buffer = getString(1 + strlen(server), '&', frame.data);
-        aux = getString(2 + strlen(server) + strlen(buffer), '\0', frame.data);
+        server_name = getString(0, '&', frame.data);
+        buffer = getString(1 + strlen(server_name), '&', frame.data);
+        aux = getString(2 + strlen(server_name) + strlen(buffer), '\0', frame.data);
         poole = configServer(buffer, atoi(aux));
         
 
@@ -111,7 +111,6 @@ void connection(struct sockaddr_in poole, struct sockaddr_in discovery) {
         if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
             asprintf(&buffer, "%s%s connected to HAL 9000 system, welcome music lover!\n%s", C_GREEN, config.user, C_RESET);
             printF(buffer);
-            connected = 1;
             free(buffer);
             buffer = NULL;
         }
@@ -160,7 +159,7 @@ void logout() {
     buffer = sendFrame(buffer, poole_sock);
     frame = readFrame(poole_sock);
     
-    asprintf(&buffer, T6, server);
+    asprintf(&buffer, T6, server_name);
     buffer = sendFrame(buffer, discovery_sock);
     frame2 = readFrame(discovery_sock);
     if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0 && frame2.type == '6' && strcmp(frame2.header, "CON_OK") == 0) {                    
@@ -198,11 +197,11 @@ void sig_handler(int sigsum) {
         case SIGINT:
             printF("\nAborting...\n");
 
-            if (connected == 1) {
+            if (poole_sock != 0) {
                 logout();
             }
-            free(server);
-            server = NULL;
+            free(server_name);
+            server_name = NULL;
             free(config.user);
             free(config.files_path);
             free(config.ip);
@@ -263,7 +262,7 @@ int main(int argc, char *argv[]) {
             case 0:
                 free(buffer);
                 buffer = NULL;
-                if (connected == 1) {
+                if (poole_sock != 0) {
                     printF(C_RED);
                     printF("ERROR: Already connected to HAL 9000 system\n");
                     printF(C_RESET);
@@ -276,8 +275,8 @@ int main(int argc, char *argv[]) {
             case 1:
                 free(buffer);
                 buffer = NULL;
-                if (connected == 1) {
-                    logout(poole_sock, discovery_sock, server);
+                if (poole_sock != 0) {
+                    logout();
                 }
                 
                 goto end;
@@ -286,7 +285,7 @@ int main(int argc, char *argv[]) {
                 //list songs
                 free(buffer);
                 buffer = NULL;
-                if (connected == 0) {
+                if (poole_sock == 0) {
                     printF(C_RED);
                     printF("ERROR: Not connected to HAL 9000 system\n");
                     printF(C_RESET);
@@ -318,7 +317,7 @@ int main(int argc, char *argv[]) {
                 //list playlists
                 free(buffer);
                 buffer = NULL;
-                if (connected == 0) {
+                if (poole_sock == 0) {
                     printF(C_RED);
                     printF("ERROR: Not connected to HAL 9000 system\n");
                     printF(C_RESET);
@@ -386,8 +385,8 @@ int main(int argc, char *argv[]) {
     }
 
     end:
-    free(server);
-    server = NULL;
+    free(server_name);
+    server_name = NULL;
     free(config.user);
     free(config.files_path);
     free(config.ip);

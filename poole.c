@@ -194,6 +194,16 @@ static int listenConnections(int sock, Server_conf config) {
     return 0;
 }
 
+void sig_handler(int sigsum) {
+    switch(sigsum) {
+        case SIGINT:
+            printF("\nAborting...\n");
+
+            
+            exit(0);
+            break;
+    }
+}
 /********************************************************************
  *
  * @Purpose: Initializes the Poole server, connecting to the Discovery server 
@@ -207,10 +217,10 @@ int main(int argc, char *argv[]) {
     char* buffer;
     struct sockaddr_in server;
     int sock;
-    //size_t i = 0;
     Server_conf config;
     Frame frame;
-
+    signal(SIGINT, sig_handler);
+    
     if (argc != 2) {
         printF(C_BOLDRED);
         printF("Usage: ./poole <config_file>\n");
