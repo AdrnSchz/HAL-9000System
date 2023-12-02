@@ -62,7 +62,7 @@ int bowmanHandler(int sock, int user_pos, char** users, Server_conf config) {
 
             //char* num_songs_str = itoa(num_songs, 10);
  
-            asprintf(&buffer, T2_SONGS_RESPONSE, "20#");
+            asprintf(&buffer, T2_SONGS_RESPONSE, "4#");
 
             int buffer_length = strlen(buffer);
             int remaining_space = 256 - buffer_length - 1;
@@ -90,8 +90,8 @@ int bowmanHandler(int sock, int user_pos, char** users, Server_conf config) {
             printF(buffer);
             printF("\n");
             sendFrame(buffer, sock);
-            free(buffer);
-            buffer = NULL;
+            //free(buffer);
+            //buffer = NULL;
             printF("6\n");
         }
         else if (strcmp(frame.header, "LIST_PLAYLISTS") == 0) {
