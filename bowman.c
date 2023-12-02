@@ -296,21 +296,26 @@ int main(int argc, char *argv[]) {
                 buffer = sendFrame(buffer, poole_sock);
 
                 frame = readFrame(poole_sock);
-                asprintf(&buffer, "%sThere are %s songs available for download:\n%s", C_GREEN, frame.data, C_RESET);
+
+                char* num_songs_str = strtok(frame.data, "#");
+                asprintf(&buffer, "%sThere are %s songs available for download:\n%s", C_GREEN, num_songs_str, C_RESET);
                 printF(buffer);
                 free(buffer);
                 buffer = NULL;
 
-                int num_songs = atoi(frame.data);
-                for (int i = 0; i < num_songs; i++) {
-                    frame = freeFrame(frame);
-                    frame = readFrame(poole_sock); //change read header for read songs/playlist function in phase3
-                    asprintf(&buffer, "%d. %s\n", i + 1, frame.data);
-                    printF(buffer);
-                    free(buffer);
-                    buffer = NULL;
-                }
+                char* song = strtok(NULL, "&");
+                int num_songs = atoi(num_songs_str);
 
+                for (int i = 0; i < num_songs; i++) {
+                    if (song != NULL) {
+                        asprintf(&buffer, "%d. %s\n", i + 1, song);
+                        printF(buffer);
+                        free(buffer);
+                        buffer = NULL;
+
+                        song = strtok(NULL, "&");
+                    }
+                }
                 frame = freeFrame(frame);
                 break;
             case 3:
