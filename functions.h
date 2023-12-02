@@ -63,6 +63,16 @@ void readLine(int source, char** string);
 
 /********************************************************************
  *
+ * @Purpose: Reads a string from a file descriptor until it reaches the character end and return the string address.
+ * @Parameters: fd - File descriptor to read from.
+ *              end - character to stop reading.
+ * @Return: ---
+ *
+ ********************************************************************/
+char* readUntil(int fd, char end);
+
+/********************************************************************
+ *
  * @Purpose: Checks and removes '&' characters from a user name.
  * @Parameters: name - Pointer to the string containing the user name.
  * @Return: ---

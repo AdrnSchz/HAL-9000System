@@ -49,6 +49,23 @@ void readLine(int source, char** string) {
     *string = buffer;
 }
 
+char* readUntil(int fd, char end) {
+    char *buffer;
+    int i = 0;
+
+    buffer = (char*) malloc(sizeof(char));
+
+    read(fd, &buffer[i], sizeof(char));
+    while (buffer[i] != end) {
+        i++;
+        buffer = (char*) realloc(buffer, sizeof(char) * (i + 1));
+        read(fd, &buffer[i], sizeof(char));
+    }
+    buffer[i] = '\0';
+
+    return buffer;
+}
+
 void checkName(char** name) {
     int i = 0, j = 0, num = 0;
 
