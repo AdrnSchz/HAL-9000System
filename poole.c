@@ -62,7 +62,7 @@ int bowmanHandler(int sock, int user_pos, char** users, Server_conf config) {
 
             //char* num_songs_str = itoa(num_songs, 10);
  
-            asprintf(&buffer, T2_SONGS_RESPONSE, "4#");
+            asprintf(&buffer, T2_SONGS_RESPONSE, "7#");
 
             int buffer_length = strlen(buffer);
             int remaining_space = 256 - buffer_length - 1;
@@ -83,16 +83,30 @@ int bowmanHandler(int sock, int user_pos, char** users, Server_conf config) {
                     strcpy(buffer + buffer_length, songs[i]);
 
                     buffer_length += song_length;               
-                    remaining_space -= song_length;                
+                    remaining_space -= song_length; 
+                    printf("bflen = %d\n", buffer_length);
+                } else {
+                    // Not enough space -> send the current buffer
+                    printF("\n\n1\n");
+                    printF(buffer);
+                    printF("\n");
+                    sendFrame(buffer, sock);
+
+                    // Reset the buffer for the next iteration
+                    asprintf(&buffer, T2_SONGS_RESPONSE, "7#");
+                    buffer_length = strlen(buffer);
+                    remaining_space = 256 - buffer_length - 1;
+
+                    // Process the song again
+                    i--;
                 }
             }
-            printF("\n\n5\n");
-            printF(buffer);
-            printF("\n");
-            sendFrame(buffer, sock);
-            //free(buffer);
-            //buffer = NULL;
-            printF("6\n");
+            if ((int)buffer_length > (int)strlen(T2_SONGS_RESPONSE)) {
+                printF("\n\n2\n");
+                printF(buffer);
+                printF("\n");
+                sendFrame(buffer, sock);
+            }
         }
         else if (strcmp(frame.header, "LIST_PLAYLISTS") == 0) {
             asprintf(&buffer, "\n%sNew request - %s requires the list of playlists.\n%sSending playlist list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
