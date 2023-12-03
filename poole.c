@@ -54,8 +54,10 @@ int bowmanHandler(int sock, int user_pos, char** users, Server_conf config) {
 
             //get number of songs and songs
             int num_songs = 0;
-            char* file;
+            char* file = NULL;
             asprintf(&file, "%s/songs.txt", config.path); 
+            printF(config.path);
+            printF("\n");
             char** songs = readSongs(file, &num_songs);
             free(file);
             file = NULL;

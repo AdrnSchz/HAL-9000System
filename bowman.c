@@ -99,6 +99,7 @@ void connection(struct sockaddr_in poole, struct sockaddr_in discovery) {
             printF(C_BOLDRED);
             printF("Error trying to connect to HAL 9000 system\n");
             printF(C_RESET);
+            poole_sock = 0;
             return;
         }
 
@@ -118,12 +119,13 @@ void connection(struct sockaddr_in poole, struct sockaddr_in discovery) {
             printF(C_RED);
             printF("Could not establish connection.\n");
             printF(C_RESET);
+            poole_sock = 0;
         }
         else {
             printF(C_RED);
             printF("Received wrong frame\n");
             printF(C_RESET);
-            sendError(poole_sock);
+            poole_sock = 0;
         }
     }
     else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
