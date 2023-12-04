@@ -93,9 +93,9 @@ Frame readFrame(int sock) {
     int i, j;
 
     read(sock, buffer, 256);
-    //printF("Received frame: ");
-    //printF(buffer);
-    //printF("\n");
+    printF("Received frame: ");
+    printF(buffer);
+    printF("\n");
     frame.type = buffer[0];
     frame.length[0] = buffer[1];
     frame.length[1] = buffer[2];
@@ -124,9 +124,9 @@ char* sendFrame(char* buffer, int sock) {
         buffer[i] = '\0';
     }
     write(sock, buffer, 256);
-    //printF("Sending frame: ");
-    //printF(buffer);
-    //printF("\n");
+    printF("Sending frame: ");
+    printF(buffer);
+    printF("\n");
     free(buffer);
     buffer = NULL;
 

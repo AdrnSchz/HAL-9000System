@@ -104,6 +104,26 @@ int connectionHandler(int sock) {
             }
             return -1;
     }
+    else if (frame.type == '6' && strcmp(frame.header, "SHUTDOWN") == 0) {
+        asprintf(&buffer, T6_OK);
+        buffer = sendFrame(buffer, sock);
+        asprintf(&buffer, "\n%sServer %s got unexpectedly disconnected\n%s", C_RED, frame.data, C_RESET);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+
+        for (int i = 0; i < num_servers; i++) {
+            if (strcmp(frame.data, servers[i].name) == 0) {
+                for (int j = i; j < num_servers - 1; j++) {
+                    servers[j] = servers[j + 1];
+                }
+                num_servers--;
+                servers = realloc(servers, num_servers * sizeof(Server));
+                break;
+            }
+        }
+        return -1;
+    }
     else if (frame.type == '7') {
         printF(C_BOLDRED);
         printF("Sent wrong frame\n");

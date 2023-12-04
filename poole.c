@@ -18,6 +18,12 @@
 #include "configs.h"
 #include "connections.h"
 
+int bow_sock = 0;
+Server_conf config;
+int* users_fd;
+int num_users;
+char** users;
+
 /********************************************************************
  *
  * @Purpose: Handles interactions with connected Bowman users, processing 
@@ -28,7 +34,7 @@
  * @Return: 0 on success, -1 on user disconnection or error.
  *
  ********************************************************************/
-int bowmanHandler(int sock, int user_pos, char** users, Server_conf config) {
+int bowmanHandler(int sock, int user_pos) {
     Frame frame;
     char* buffer = NULL;
 
@@ -175,17 +181,17 @@ int bowmanHandler(int sock, int user_pos, char** users, Server_conf config) {
  * @Return: 0 on success, -1 on error.
  *
  ********************************************************************/
-static int listenConnections(int sock, Server_conf config) {
+static int listenConnections() {
     fd_set readfds;
-    int* users_fd = (int*) malloc(sizeof(int));
-    int num_users = 0;
-    char** users = (char**) malloc(sizeof(char*));
+    users_fd = (int*) malloc(sizeof(int));
+    num_users = 0;
+    users = (char**) malloc(sizeof(char*));
 
     printF("\nWaiting for connections...\n");
     
     while (1) {
         FD_ZERO(&readfds);
-        FD_SET(sock, &readfds);
+        FD_SET(bow_sock, &readfds);
         for (int i = 0; i < num_users; i++) {
             FD_SET(users_fd[i], &readfds);
         }
@@ -200,15 +206,15 @@ static int listenConnections(int sock, Server_conf config) {
             printF("Timeout\n");
         }
         else {
-            if (FD_ISSET(sock, &readfds)) {
-                if (acceptConnection(&num_users, &users_fd, "bowman", sock, 0) == -1) {
+            if (FD_ISSET(bow_sock, &readfds)) {
+                if (acceptConnection(&num_users, &users_fd, "bowman", bow_sock, 0) == -1) {
                     return -1;
                 }
                 users = (char**) realloc(users, sizeof(char*) * num_users);
             }
             for (int i = 0; i < num_users; i++) {
                 if (FD_ISSET(users_fd[i], &readfds)) {
-                    if (bowmanHandler(users_fd[i], i, users, config) == -1) {
+                    if (bowmanHandler(users_fd[i], i) == -1) {
                         //cerrar sock
                         close(users_fd[i]);
                         FD_CLR(users_fd[i], &readfds);
@@ -223,7 +229,7 @@ static int listenConnections(int sock, Server_conf config) {
         }
     }
 
-    close (sock);
+    close (bow_sock);
     for (int i = 0; i < num_users; i++) {
         close(users_fd[i]);
     }
@@ -231,12 +237,89 @@ static int listenConnections(int sock, Server_conf config) {
     return 0;
 }
 
+void logout() {
+    char* buffer = NULL;
+    Frame frame;
+    int disc_sock;
+    struct sockaddr_in discovery;
+
+    for (int i = 0; i < num_users; i++) {
+        asprintf(&buffer, T6_POOLE, config.server);
+        buffer = sendFrame(buffer, users_fd[i]);
+
+        frame = readFrame(users_fd[i]);
+
+        if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
+            asprintf(&buffer, "%sDisconnected user %s\n%s", C_GREEN, users[i], C_RESET);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+            close(users_fd[i]);
+            free(users[i]);
+            users[i] = NULL;
+        }
+        else {
+            asprintf(&buffer, "%sCouldn't close %s user connection\n%s", C_RED, users[i], C_RESET);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+        }
+        frame = freeFrame(frame);
+    }
+
+    discovery = configServer(config.discovery_ip, config.discovery_port);
+
+    disc_sock = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (disc_sock == -1) {
+        printF(C_BOLDRED);
+        printF("Error creating socket\n");
+        printF(C_RESET);
+
+        return;
+    }
+
+    if (connect(disc_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
+        printF(C_BOLDRED);
+        printF("Error connecting to the server!\n");
+        printF(C_RESET);
+
+        return;
+    }
+
+    asprintf(&buffer, T6_POOLE, config.server);
+    buffer = sendFrame(buffer, disc_sock);
+
+    frame = readFrame(disc_sock);
+    if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
+        asprintf(&buffer, "%sSuccessfully aborted\n%s", C_GREEN, C_RESET);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+        close(disc_sock);
+    }
+    else {
+        asprintf(&buffer, "%sCouldn't abort successfully\n%s", C_RED, C_RESET);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+    }
+    frame = freeFrame(frame);
+}
+
 void sig_handler(int sigsum) {
     switch(sigsum) {
         case SIGINT:
             printF("\nAborting...\n");
-
-            
+            logout();
+            free(config.server);
+            free(config.path);
+            free(config.discovery_ip);
+            free(config.user_ip);
+            config.server = NULL;
+            config.path = NULL;
+            config.discovery_ip = NULL;
+            config.user_ip = NULL;
             exit(0);
             break;
     }
@@ -253,8 +336,7 @@ void sig_handler(int sigsum) {
 int main(int argc, char *argv[]) {
     char* buffer;
     struct sockaddr_in server;
-    int sock;
-    Server_conf config;
+    int disc_sock;
     Frame frame;
     signal(SIGINT, sig_handler);
     
@@ -279,9 +361,9 @@ int main(int argc, char *argv[]) {
 
     server = configServer(config.discovery_ip, config.discovery_port);
 
-    sock = socket(AF_INET, SOCK_STREAM, 0);
+    disc_sock = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (sock == -1) {
+    if (disc_sock == -1) {
         printF(C_BOLDRED);
         printF("Error creating socket\n");
         printF(C_RESET);
@@ -294,7 +376,7 @@ int main(int argc, char *argv[]) {
     free(buffer);
     buffer = NULL;
 
-    if (connect(sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
+    if (connect(disc_sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
         printF(C_BOLDRED);
         printF("Error connecting to the server!\n");
         printF(C_RESET);
@@ -303,17 +385,16 @@ int main(int argc, char *argv[]) {
     }
 
     asprintf(&buffer, T1_POOLE, config.server, config.user_ip, config.user_port);
-    buffer = sendFrame(buffer, sock);
+    buffer = sendFrame(buffer, disc_sock);
 
-    frame = readFrame(sock);
+    frame = readFrame(disc_sock);
 
     if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
-        close(sock); 
-
+        close(disc_sock);
         server = configServer(config.user_ip, config.user_port);
-        sock = socket(AF_INET, SOCK_STREAM, 0);
+        bow_sock = socket(AF_INET, SOCK_STREAM, 0);
         
-        if (openConnection(sock, server, "bowman") == -1) {
+        if (openConnection(bow_sock, server, "bowman") == -1) {
             return -1;
         }
 
@@ -322,7 +403,7 @@ int main(int argc, char *argv[]) {
         free(buffer);
         buffer = NULL;
 
-        if (listenConnections(sock, config) == -1) {
+        if (listenConnections() == -1) {
             return -1;
         }
     }
@@ -330,8 +411,8 @@ int main(int argc, char *argv[]) {
         printF(C_BOLDRED);
         printF("Error trying to connect to HAL 9000 system\n");
         printF(C_RESET);
-        sendError(sock);
-        close(sock);
+        sendError(disc_sock);
+        close(disc_sock);
         return -1;
     } 
     return 0;

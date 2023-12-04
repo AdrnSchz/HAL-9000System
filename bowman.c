@@ -65,17 +65,20 @@ int configConnection(int* sock, struct sockaddr_in* server) {
  * @Return: ---
  *
  ********************************************************************/
-void connection(struct sockaddr_in poole, struct sockaddr_in discovery) {
+void connection(struct sockaddr_in poole, struct sockaddr_in discovery, int opt) {
     char* buffer = NULL, *aux = NULL;
     Frame frame;
 
-    if (connect(discovery_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
-        printF(C_RED);
-        printF("Error trying to connect to HAL 9000 system\n");
-        printF(C_RESET);
-        
-        return;
+    if (opt == 0) {
+        if (connect(discovery_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
+            printF(C_RED);
+            printF("Error trying to connect to load balancer\n");
+            printF(C_RESET);
+            
+            return;
+        }
     }
+
     asprintf(&buffer, T1_BOWMAN, config.user);
     buffer = sendFrame(buffer, discovery_sock);
 
@@ -99,7 +102,6 @@ void connection(struct sockaddr_in poole, struct sockaddr_in discovery) {
             printF(C_BOLDRED);
             printF("Error trying to connect to HAL 9000 system\n");
             printF(C_RESET);
-            poole_sock = 0;
             return;
         }
 
@@ -119,13 +121,12 @@ void connection(struct sockaddr_in poole, struct sockaddr_in discovery) {
             printF(C_RED);
             printF("Could not establish connection.\n");
             printF(C_RESET);
-            poole_sock = 0;
         }
         else {
             printF(C_RED);
             printF("Received wrong frame\n");
             printF(C_RESET);
-            poole_sock = 0;
+            sendError(poole_sock);
         }
     }
     else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
@@ -186,6 +187,28 @@ void logout() {
     frame2 = freeFrame(frame2);
 }
 
+int frameInput() {
+    Frame frame;
+    char* buffer = NULL;
+
+    frame = readFrame(poole_sock);
+
+    if (frame.type == '6' && strcmp(frame.header, "SHUTDOWN") == 0) {
+        asprintf(&buffer, T6_OK);
+        buffer = sendFrame(buffer, poole_sock);
+        asprintf(&buffer, "\n%sServer %s got unexpectedly disconnected\n%s", C_RED, frame.data, C_RESET);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+
+        close(poole_sock);
+        frame = freeFrame(frame);
+        
+        return 6;
+    }
+
+    return 0;
+}
 /********************************************************************
 *
 * @Purpose: Handles the SIGINT signal for aborting the program.
@@ -227,6 +250,7 @@ int main(int argc, char *argv[]) {
     char* buffer = NULL;
     struct sockaddr_in discovery, poole;
     Frame frame;
+    fd_set readfds;
     signal(SIGINT, sig_handler);
 
     if (argc != 2) {
@@ -256,138 +280,162 @@ int main(int argc, char *argv[]) {
     }
     
     while(1) {
+        FD_ZERO(&readfds);
+        FD_SET(poole_sock, &readfds);
+        FD_SET(0, &readfds);
+
         printF(BOLD);
         printF("\n$ ");
-        readLine(0, &buffer);
-        printF(C_RESET);
-        switch (checkCommand(buffer)) {
-            case 0:
-                free(buffer);
-                buffer = NULL;
-                if (poole_sock != 0) {
-                    printF(C_RED);
-                    printF("ERROR: Already connected to HAL 9000 system\n");
-                    printF(C_RESET);
-                    break;
-                }
 
-                connection(poole, discovery);
+        int ready = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
 
-                break;
-            case 1:
-                free(buffer);
-                buffer = NULL;
-                if (poole_sock != 0) {
-                    logout();
-                }
-                
-                goto end;
-                break;
-            case 2:
-                //list songs
-                free(buffer);
-                buffer = NULL;
-                if (poole_sock == 0) {
-                    printF(C_RED);
-                    printF("ERROR: Not connected to HAL 9000 system\n");
-                    printF(C_RESET);
-                    break;
-                }
-                
-                asprintf(&buffer, T2_SONGS);
-                buffer = sendFrame(buffer, poole_sock);
+        if (ready <= 0) {
+            printF(C_RED);
+            printF("ERROR: Select failed.\n");
+            printF(C_RESET);
 
-                frame = readFrame(poole_sock);
+            return -1;
+        }
 
-                char* num_songs_str = strtok(frame.data, "#");
-                asprintf(&buffer, "%sThere are %s songs available for download:\n%s", C_GREEN, num_songs_str, C_RESET);
-                printF(buffer);
-                free(buffer);
-                buffer = NULL;
+        else {
+            if (FD_ISSET(0, &readfds)) {
+                readLine(0, &buffer);
+                printF(C_RESET);
+                switch (checkCommand(buffer)) {
+                    case 0:
+                        free(buffer);
+                        buffer = NULL;
+                        if (poole_sock != 0) {
+                            printF(C_RED);
+                            printF("ERROR: Already connected to HAL 9000 system\n");
+                            printF(C_RESET);
+                            break;
+                        }
 
-                char* song = strtok(NULL, "&");
-                int num_songs = atoi(num_songs_str);
+                        connection(poole, discovery, 0);
 
-                for (int i = 0; i < num_songs; i++) {
-                    if (song != NULL) {
-                        asprintf(&buffer, "%d. %s\n", i + 1, song);
+                        break;
+                    case 1:
+                        free(buffer);
+                        buffer = NULL;
+                        if (poole_sock != 0) {
+                            logout();
+                        }
+                        
+                        goto end;
+                        break;
+                    case 2:
+                        //list songs
+                        free(buffer);
+                        buffer = NULL;
+                        if (poole_sock == 0) {
+                            printF(C_RED);
+                            printF("ERROR: Not connected to HAL 9000 system\n");
+                            printF(C_RESET);
+                            break;
+                        }
+                        
+                        asprintf(&buffer, T2_SONGS);
+                        buffer = sendFrame(buffer, poole_sock);
+
+                        frame = readFrame(poole_sock);
+
+                        char* num_songs_str = strtok(frame.data, "#");
+                        asprintf(&buffer, "%sThere are %s songs available for download:\n%s", C_GREEN, num_songs_str, C_RESET);
                         printF(buffer);
                         free(buffer);
                         buffer = NULL;
 
-                        song = strtok(NULL, "&");
-                    }
-                }
-                frame = freeFrame(frame);
-                break;
-            case 3:
-                //list playlists
-                free(buffer);
-                buffer = NULL;
-                if (poole_sock == 0) {
-                    printF(C_RED);
-                    printF("ERROR: Not connected to HAL 9000 system\n");
-                    printF(C_RESET);
-                    break;
-                }
-                
-                asprintf(&buffer, T2_PLAYLISTS);
-                buffer = sendFrame(buffer, poole_sock);
+                        char* song = strtok(NULL, "&");
+                        int num_songs = atoi(num_songs_str);
 
-                frame = readFrame(poole_sock);
-                asprintf(&buffer, "%sThere are %s playlists available for download:\n%s", C_GREEN, frame.data, C_RESET);
-                printF(buffer);
-                free(buffer);
-                buffer = NULL;
+                        for (int i = 0; i < num_songs; i++) {
+                            if (song != NULL) {
+                                asprintf(&buffer, "%d. %s\n", i + 1, song);
+                                printF(buffer);
+                                free(buffer);
+                                buffer = NULL;
 
-                int num_playlists = atoi(frame.data);
-                for (int i = 0; i < num_playlists; i++) {
-                    frame = freeFrame(frame);
-                    frame = readFrame(poole_sock); //change read header for read songs/playlist function in phase3
-                    asprintf(&buffer, "%d. %s\n", i + 1, frame.data);
-                    printF(buffer);
-                    free(buffer);
-                    buffer = NULL;
+                                song = strtok(NULL, "&");
+                            }
+                        }
+                        frame = freeFrame(frame);
+                        break;
+                    case 3:
+                        //list playlists
+                        free(buffer);
+                        buffer = NULL;
+                        if (poole_sock == 0) {
+                            printF(C_RED);
+                            printF("ERROR: Not connected to HAL 9000 system\n");
+                            printF(C_RESET);
+                            break;
+                        }
+                        
+                        asprintf(&buffer, T2_PLAYLISTS);
+                        buffer = sendFrame(buffer, poole_sock);
+
+                        frame = readFrame(poole_sock);
+                        asprintf(&buffer, "%sThere are %s playlists available for download:\n%s", C_GREEN, frame.data, C_RESET);
+                        printF(buffer);
+                        free(buffer);
+                        buffer = NULL;
+
+                        int num_playlists = atoi(frame.data);
+                        for (int i = 0; i < num_playlists; i++) {
+                            frame = freeFrame(frame);
+                            frame = readFrame(poole_sock); //change read header for read songs/playlist function in phase3
+                            asprintf(&buffer, "%d. %s\n", i + 1, frame.data);
+                            printF(buffer);
+                            free(buffer);
+                            buffer = NULL;
+                        }
+                        frame = freeFrame(frame);
+                        break;
+                    case 4:
+                        free(buffer);
+                        buffer = NULL;
+                        printF(C_GREEN);
+                        printF("OK\n");
+                        printF(C_RESET);
+                        break;
+                    case 5:
+                        free(buffer);
+                        buffer = NULL;
+                        printF(C_GREEN);
+                        printF("OK\n");
+                        printF(C_RESET);
+                        break;
+                    case 6:
+                        free(buffer);
+                        buffer = NULL;
+                        printF(C_GREEN);
+                        printF("OK\n");
+                        printF(C_RESET);
+                        break;
+                    case 7:
+                        free(buffer);
+                        buffer = NULL;
+                        printF(C_RED);
+                        //printF("KO\n");
+                        printF("Unknown command.\n");
+                        printF(C_RESET);
+                        break;
+                    default:
+                        free(buffer);
+                        buffer = NULL;
+                        printF(C_RED);
+                        //printF("KO\n");
+                        printF("ERROR: Please input a valid command.\n");
+                        printF(C_RESET);
+                        break;
                 }
-                frame = freeFrame(frame);
-                break;
-            case 4:
-                free(buffer);
-                buffer = NULL;
-                printF(C_GREEN);
-                printF("OK\n");
-                printF(C_RESET);
-                break;
-            case 5:
-                free(buffer);
-                buffer = NULL;
-                printF(C_GREEN);
-                printF("OK\n");
-                printF(C_RESET);
-                break;
-            case 6:
-                free(buffer);
-                buffer = NULL;
-                printF(C_GREEN);
-                printF("OK\n");
-                printF(C_RESET);
-                break;
-            case 7:
-                free(buffer);
-                buffer = NULL;
-                printF(C_RED);
-                //printF("KO\n");
-                printF("Unknown command.\n");
-                printF(C_RESET);
-                break;
-            default:
-                free(buffer);
-                buffer = NULL;
-                printF(C_RED);
-                //printF("KO\n");
-                printF("ERROR: Please input a valid command.\n");
-                printF(C_RESET);
-                break;
+            }
+            else if (FD_ISSET(poole_sock, &readfds)) {
+                if (frameInput() == 6) {
+                    connection(poole, discovery, 1);
+                }
+            }
         }
     }
 
