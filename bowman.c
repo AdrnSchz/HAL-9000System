@@ -256,6 +256,7 @@ int main(int argc, char *argv[]) {
     char* song = NULL;
     int num_songs = 0;
     char* playlist_name = NULL;
+    size_t total_bytes = 0;
 
     struct sockaddr_in discovery, poole;
     Frame frame;
@@ -400,41 +401,56 @@ int main(int argc, char *argv[]) {
                         buffer = sendFrame(buffer, poole_sock);
                         alreadyPrinted = 0;
 
-                        while (1) {
-                            frame = readFrame(poole_sock);
-                            num_playlists_str = strtok(frame.data, "#");
+                        frame = readFrame(poole_sock);
+                        total_bytes = 0;
+                        size_t data_len = strlen(frame.data);
+                        num_playlists_str = strtok(frame.data, "#");
+                        total_bytes += strlen(num_playlists_str) + 1;
 
-                            if (alreadyPrinted == 0) {
-                                asprintf(&buffer, "%sThere are %s playlists available for download:\n%s", C_GREEN, num_playlists_str, C_RESET);
+                        asprintf(&buffer, "%sThere are %s playlists available for download:\n%s", C_GREEN, num_playlists_str, C_RESET);
+                        printF(buffer);
+                        free(buffer);
+                        buffer = NULL;
+                        alreadyPrinted = 1;
+                        
+                        int num_playlists = atoi(num_playlists_str);
+                        
+                        // Iterate through playlists
+                        for (int i = 0; i < num_playlists; i++) {
+                            totalSongs = 0;
+                            totalPlaylists++;
+                            nextFrame:
+                            num_songs_str = strtok(NULL, "#");
+                            total_bytes += strlen(num_songs_str) + 1;
+                            int num_songs = atoi(num_songs_str);
+                            playlist_name = strtok(NULL, "&");
+                            total_bytes += strlen(playlist_name) + 1;
+
+                            asprintf(&buffer, "%d. %s\n", i + 1, playlist_name);
+                            printF(buffer);
+                            free(buffer);
+                            buffer = NULL;
+
+                            for (int j = totalSongs; j < num_songs; j++) {
+                                totalSongs++;
+                                song = strtok(NULL, "#&\0");
+                                total_bytes += strlen(song) + 1;
+                                asprintf(&buffer, "\t%d. %s\n", j + 1, song);
                                 printF(buffer);
                                 free(buffer);
                                 buffer = NULL;
-                                alreadyPrinted = 1;
-                            }
-                            
-                            int num_playlists = atoi(num_playlists_str);
-                            for (int i = 0; i < num_playlists; i++) {
-                                totalPlaylists += 1;
-                                num_songs_str = strtok(NULL, "#");
-                                int num_songs = atoi(num_songs_str);
-                                playlist_name = strtok(NULL, "&");
 
-                                asprintf(&buffer, "%d. %s\n", i + 1, playlist_name);
-                                printF(buffer);
-                                free(buffer);
-                                buffer = NULL;
-
-                                for (int j = 0; j < num_songs; j++) {
-                                    song = strtok(NULL, "&#");
-                                    asprintf(&buffer, "\t%d. %s\n", j + 1, song);
-                                    printF(buffer);
-                                    free(buffer);
-                                    buffer = NULL;
+                                if (totalSongs < num_songs && (total_bytes == data_len + 1)) {
+                                    frame = readFrame(poole_sock);
+                                    num_playlists_str = strtok(frame.data, "#");
+                                    total_bytes += strlen(num_playlists_str) + 1;
+                                    goto nextFrame;
+                                } 
+                                if (total_bytes == strlen(frame.data) + 1) {
+                                    break;
                                 }
                             }
-                            if (totalPlaylists >= num_playlists) {
-                                break;
-                            }
+                            totalSongs = 0;
                         }
                         totalPlaylists = 0;
                         frame = freeFrame(frame);

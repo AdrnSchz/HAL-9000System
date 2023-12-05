@@ -86,7 +86,7 @@ int bowmanHandler(int sock, int user_pos) {
                 if (song_length <= remaining_space) {
                     if (i != 0) {
                         buffer = realloc(buffer, buffer_length + 2);
-                        buffer[buffer_length + 1] = '\0';
+                        //buffer[buffer_length + 1] = '\0';
                         buffer[buffer_length] = '&';
                         buffer_length++;
                         remaining_space -= 1;
@@ -227,7 +227,6 @@ int bowmanHandler(int sock, int user_pos) {
             printF("Wrong frame\n");
             sendError(sock);
         }
-
     }
     else if (frame.type == '6' && strcmp(frame.header, "EXIT") == 0) {
         asprintf(&buffer, T6_OK);
