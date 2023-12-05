@@ -99,9 +99,6 @@ int bowmanHandler(int sock, int user_pos) {
                     remaining_space -= song_length; 
                 } else {
                     // Not enough space -> send the current buffer
-                    printF("\n\n1\n");
-                    printF(buffer);
-                    printF("\n");
                     sendFrame(buffer, sock);
 
                     // Reset the buffer for the next iteration
@@ -117,9 +114,6 @@ int bowmanHandler(int sock, int user_pos) {
                 }
             }
             // Enough space -> send the current buffer
-            printF("\n\n2\n");
-            printF(buffer);
-            printF("\n");
             sendFrame(buffer, sock);
             buffer_length = 0;
             remaining_space = 0;
@@ -163,7 +157,6 @@ int bowmanHandler(int sock, int user_pos) {
 
                     free(num_songs_str);
                     
-                    
                     buffer = realloc(buffer, buffer_length + playlist_length + 1);
                     buffer[buffer_length + playlist_length] = '\0';
                     strcpy(buffer + buffer_length, playlists[i].name);
@@ -175,13 +168,13 @@ int bowmanHandler(int sock, int user_pos) {
                     for (int j = 0; j < playlists[i].num_songs; j++) {
                         int song_length = strlen(playlists[i].songs[j]);
                         if (song_length <= remaining_space) {
-                            //if (i != 0) {
-                                buffer = realloc(buffer, buffer_length + 2);
-                                buffer[buffer_length + 1] = '\0';
-                                buffer[buffer_length] = '&';
-                                buffer_length++;
-                                remaining_space -= 1;
-                            //}
+                            
+                            buffer = realloc(buffer, buffer_length + 2);
+                            buffer[buffer_length + 1] = '\0';
+                            buffer[buffer_length] = '&';
+                            buffer_length++;
+                            remaining_space -= 1;
+
                             buffer = realloc(buffer, buffer_length + song_length + 1);
                             buffer[buffer_length + song_length] = '\0';
                             strcpy(buffer + buffer_length, playlists[i].songs[j]);
@@ -190,32 +183,44 @@ int bowmanHandler(int sock, int user_pos) {
                             remaining_space -= song_length; 
                         } else {
                             // Not enough space -> send the current buffer
-                            printF("\n\n1\n");
-                            printF(buffer);
-                            printF("\n");
+                            printF("\n\n3\n");
                             sendFrame(buffer, sock);
 
                             // Reset the buffer for the next iteration
-                            asprintf(&num_songs_str, "%d#", playlists[i].num_songs);
-                            asprintf(&buffer, T2_PLAYLISTS_RESPONSE, num_songs_str);
-                            free(num_songs_str);
-                            num_songs_str = NULL;
+                            asprintf(&num_playlists_str, "%d", num_playlists);
+                            asprintf(&buffer, T2_PLAYLISTS_RESPONSE, num_playlists_str);
+                            free(num_playlists_str);
+                            num_playlists_str = NULL;
+
                             buffer_length = strlen(buffer);
                             remaining_space = 256 - buffer_length - 1;
 
-                            // Process the song again
-                            j--;
                             // Process the playlist again
-                            i--;
+                            i -= 1;
+                            // Process the song again
+                            j = 0;
+                            break;
                         }
                     }
                 } else {
-                    i--;
-                }               
+                    // Not enough space -> send the current buffer
+                    printF("\n\n1\n");
+                    sendFrame(buffer, sock);
+
+                    // Reset the buffer for the next iteration
+                    asprintf(&num_playlists_str, "%d", num_playlists);
+                    asprintf(&buffer, T2_PLAYLISTS_RESPONSE, num_playlists_str);
+                    free(num_playlists_str);
+                    num_playlists_str = NULL;
+
+                    buffer_length = strlen(buffer);
+                    remaining_space = 256 - buffer_length - 1;
+
+                    // Process the playlist again
+                    i -= 1;
+                }   
             }
             printF("\n\n2\n");
-            printF(buffer);
-            printF("\n");
             sendFrame(buffer, sock);
         }
         else {

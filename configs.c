@@ -90,7 +90,7 @@ char **readSongs(char* file, int *num_songs) {
     fd_config = open(file, O_RDONLY);
 
     if (fd_config == -1) {
-        asprintf(&buffer,C_BOLDRED "EROOR: %s not found.\n" C_RESET, file);
+        asprintf(&buffer,C_BOLDRED "ERROR: %s not found.\n" C_RESET, file);
         printF(buffer);
         free(buffer);
         exit(-1);
@@ -115,7 +115,7 @@ Playlist* readPlaylists(char* file, int *num_playlists) {
     fd_config = open(file, O_RDONLY);
 
     if (fd_config == -1) {
-        asprintf(&buffer,C_BOLDRED "EROOR: %s not found.\n" C_RESET, file);
+        asprintf(&buffer,C_BOLDRED "ERROR: %s not found.\n" C_RESET, file);
         printF(buffer);
         free(buffer);
         exit(-1);
