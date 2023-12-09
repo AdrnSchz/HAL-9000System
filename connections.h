@@ -69,7 +69,7 @@ typedef struct {
 */
 typedef struct {
     char* name;
-    int fd;
+    int fd_pos;
 } Send;
 /********************************************************************
  *

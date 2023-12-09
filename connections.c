@@ -149,7 +149,7 @@ int getFileData(char* data, File* file) {
     for (int i = 0; i < len; i++) {
         if (data[i] == '&') {
             data_split[j] = (char*) realloc(data_split[j], sizeof(char) * (k + 1));
-            data_split[k] = '\0';
+            data_split[j][k] = '\0';
             k = 0;
             j++;
         }

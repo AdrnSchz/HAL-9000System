@@ -27,11 +27,18 @@ pthread_t* threads;
 int* ids;
 
 void* sendFile(void* arg) {
-    Send send = *(Send*) arg;
+    Send* send = (Send*) arg;
     int index = num_threads - 1, fd_file, size = 0;
     char* buffer = NULL, *file = NULL, *md5;
 
-    asprintf(&file, "%s/%s", config.path, send.name);
+    asprintf(&buffer, "pos: %d\n", send->fd_pos);
+    printF(buffer);
+    free(buffer);
+    buffer = NULL;
+    printF("1.\n");
+    printF(send->name);
+    printF("\n2.\n");
+    asprintf(&file, "%s/%s", config.path, send->name);
 
     srand(getpid());
     ids = realloc(ids, sizeof(int) * (num_threads));
@@ -47,7 +54,6 @@ void* sendFile(void* arg) {
             }
         }
     } while (ids[index] == -1);
-    
 
     //asprintf(&buffer, "md5sum %s | cut -d' ' -f1", file);
     //system(buffer); // popen to execute the command and save it in md5 variable
@@ -57,9 +63,12 @@ void* sendFile(void* arg) {
 
     fd_file = open(file, O_RDONLY);
     if (fd_file == -1) {
-        asprintf(&buffer,C_BOLDRED "ERROR: %s not found.\n" C_RESET, file);
+        asprintf(&buffer,C_RED "ERROR: %s not found.\n" C_RESET, file);
         printF(buffer);
         free(buffer);
+        buffer = NULL;
+        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
+        buffer = sendFrame(buffer, users_fd[send->fd_pos]);
         return NULL;
     }
 
@@ -72,9 +81,8 @@ void* sendFile(void* arg) {
         buffer = NULL;
     }
 
-    asprintf(&buffer, T4_DOWNLOAD_RESPONSE, send.name, size, md5, ids[num_threads - 1]);
-    buffer = sendFrame(buffer, send.fd);
-
+    asprintf(&buffer, T4_DOWNLOAD_RESPONSE, send->name, size, md5, ids[num_threads - 1]);
+    buffer = sendFrame(buffer, users_fd[send->fd_pos]);
 
     //send file
 
@@ -84,6 +92,7 @@ void* sendFile(void* arg) {
 void downloadSong(char* song, int user_pos) {
     char* buffer, *file = NULL;
     int num_songs = 0, found = 0;
+    Send send;
 
     asprintf(&buffer, "\n%sNew request - %s wants to download %s.\n%s", C_GREEN, users[user_pos], song, C_RESET);
     printF(buffer);
@@ -109,8 +118,17 @@ void downloadSong(char* song, int user_pos) {
 
         if (strcmp(buffer, song) == 0) {
             found = 1;
+            send.name = malloc(strlen(buffer) + 1);
+            strcpy(send.name, buffer);
+            send.fd_pos = user_pos;
+            buffer = NULL;
+            asprintf(&buffer, "pos: %d\n", send.fd_pos);
+            printF(buffer);
             free(buffer);
             buffer = NULL;
+            printF("before\n");
+            printF(send.name);
+            printF("\nafter\n");
             break;
         }
         free(buffer);
@@ -134,10 +152,6 @@ void downloadSong(char* song, int user_pos) {
 
     free(file);
     file = NULL;
-    
-    Send send;
-    send.name = song;
-    send.fd = users_fd[user_pos];
     num_threads++;
     threads = realloc(threads, sizeof(pthread_t) * (num_threads));
     pthread_create(&threads[num_threads - 1], NULL, sendFile, &send);
@@ -217,7 +231,7 @@ void downloadList(char* list, int user_pos) {
     for (int i = 0; i < playlist.num_songs; i++) {
         Send send;
         send.name = playlist.songs[i];
-        send.fd = users_fd[user_pos];
+        send.fd_pos = user_pos;
         num_threads++;
         threads = realloc(threads, sizeof(pthread_t) * (num_threads));
         pthread_create(&threads[num_threads - 1], NULL, sendFile, &send);
