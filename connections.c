@@ -141,43 +141,47 @@ Frame freeFrame(Frame frame) {
 
     return frame;
 }
-
 int getFileData(char* data, File* file) {
     int j = 0, k = 0, len = strlen(data);
     char** data_split = malloc(sizeof(char*) * 4);
 
+    for (int i = 0; i < 4; i++) {
+        data_split[i] = NULL;
+    }
+
     for (int i = 0; i < len; i++) {
         if (data[i] == '&') {
-            data_split[j] = (char*) realloc(data_split[j], sizeof(char) * (k + 1));
+            data_split[j] = (char*)realloc(data_split[j], sizeof(char) * (k + 1));
             data_split[j][k] = '\0';
             k = 0;
             j++;
-        }
-        else {
-            data_split[j] = (char*) realloc(data_split[j], sizeof(char) * (k + 1));
+        } else {
+            data_split[j] = (char*)realloc(data_split[j], sizeof(char) * (k + 1));
             data_split[j][k] = data[i];
             k++;
         }
     }
-    data_split[j] = (char*) realloc(data_split[j], sizeof(char) * (k + 1));
+
+    data_split[j] = (char*)realloc(data_split[j], sizeof(char) * (k + 1));
     data_split[j][k] = '\0';
 
     for (int i = 0; i < 4; i++) {
         switch (i) {
-            case 0: 
+            case 0:
                 file->file_name = data_split[i];
                 break;
             case 1: 
                 file->file_size = atoi(data_split[i]);
                 break;
-            case 2: 
-                file->md5 = data_split[i];
+            case 2:
+                file->md5 = data_split[i];  
                 break;
             case 3: 
                 file->id = atoi(data_split[i]);
                 break;
         }
     }
+
     free(data_split);
     data_split = NULL;
 
