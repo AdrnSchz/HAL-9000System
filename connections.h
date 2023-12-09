@@ -22,6 +22,10 @@
 #define T2_PLAYLISTS "214LIST_PLAYLISTS"
 #define T2_SONGS_RESPONSE "214SONGS_RESPONSE%s" //%s = numsongs#song1&song2&...&songN\0
 #define T2_PLAYLISTS_RESPONSE "218PLAYLISTS_RESPONSE%s" //%s = numplaylist\0
+#define T3_DOWNLOAD_SONG "313DOWNLOAD_SONG%s" //%s = songname
+#define T3_DOWNLOAD_LIST "313DOWNLOAD_LIST%s" //%s = playlistname
+#define T4_DOWNLOAD_RESPONSE "408NEW_FILE%s&%d&%s&%d" //songname&filesize&MD5&id
+#define T4_SEND "404SEND%s" //%s = id
 #define T6 "604EXIT%s"
 #define T6_POOLE "608SHUTDOWN%s"
 #define T6_OK "606CON_OK"
@@ -47,6 +51,26 @@ typedef struct {
     int port;
 } Server;
 
+/**
+ * Structure for storing file data.
+*/
+typedef struct {
+    char* list;
+    char* file_name;
+    int file_size;
+    char* md5;
+    int id;
+    char* data;
+    int data_received;
+} File;
+
+/**
+ * Structure for storing data to be send.
+*/
+typedef struct {
+    char* name;
+    int fd;
+} Send;
 /********************************************************************
  *
  * @Purpose: Configures the server address structure for connections.
@@ -126,5 +150,15 @@ char* sendFrame(char* buffer, int sock);
  *
  ********************************************************************/
 Frame freeFrame(Frame frame);
+
+/********************************************************************
+ *
+ * @Purpose: gets the file data from a frame data.
+ * @Parameters: data - String with the data to get.
+ *              file - The file data structure to be filled.
+ * @Return: Returns 0 if the file exists, -1 otherwise.
+ *
+ ********************************************************************/
+int getFileData(char* data, File* file);
 
 #endif

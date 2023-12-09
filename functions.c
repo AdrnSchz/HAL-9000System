@@ -193,3 +193,26 @@ char* getString(int from, char until, char* string) {
     
     return buffer;
 }
+
+char* getSongName(char* string) {
+    char* buffer;
+    int found = 0, j = 0;
+
+    buffer = (char*) malloc(sizeof(char));
+
+    for (int i = 0; string[i] != '\0'; i++) {
+        if (string[i] == ' ') {
+            found = 1;
+        }
+        else {
+            if (found == 1) {
+                buffer[j] = string[i];
+                j++;
+                buffer = (char*) realloc(buffer, sizeof(char) * (j + 1));
+            }
+        }
+    }
+    buffer[j] = '\0';
+    
+    return buffer;
+}

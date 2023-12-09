@@ -118,4 +118,13 @@ int checkCommand(char* buffer);
  ********************************************************************/
 char* getString(int from, char until, char* string);
 
+/********************************************************************
+ *
+ * @Purpose: Extract the song name from the download command.
+ * @Parameters: string - The source string.
+ * @Return: The song name.
+ *
+ ********************************************************************/
+char* getSongName(char* string);
+
 #endif

@@ -21,9 +21,215 @@
 int bow_sock = 0;
 Server_conf config;
 int* users_fd;
-int num_users;
+int num_users, num_threads = 0;
 char** users;
+pthread_t* threads;
+int* ids;
 
+void* sendFile(void* arg) {
+    Send send = *(Send*) arg;
+    int index = num_threads - 1, found = 0, fd_file, size = 0;
+    char* buffer = NULL, *file = NULL, *md5;
+
+    asprintf(&file, "%s/%s", config.path, send.name);
+    if (found == 0) {
+        printF("File not found\n");
+        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
+        buffer = sendFrame(buffer, send.fd);
+        return NULL;
+    } 
+
+    srand(getpid());
+    ids = realloc(ids, sizeof(int) * (num_threads));
+    do {
+        ids[index] = rand() % (999 + 1);
+        for (int i = 0; i < num_threads; i++) {
+            if (i == index) {
+                continue;
+            }
+            if (ids[index] == ids[i]) {
+                ids[index] = -1;
+                break;
+            }
+        }
+    } while (ids[index] == -1);
+    
+
+    asprintf(&buffer, "md5sum %s | cut -d' ' -f1", file);
+    system(buffer); // popen to execute the command and save it in md5 variable
+    free(buffer);
+    buffer = NULL;
+    asprintf(&md5, "asd");
+
+    fd_file = open(file, O_RDONLY);
+    if (fd_file == -1) {
+        asprintf(&buffer,C_BOLDRED "ERROR: %s not found.\n" C_RESET, file);
+        printF(buffer);
+        free(buffer);
+        return NULL;
+    }
+
+    char* data;
+    while (read(fd_file, buffer, 1) > 0) {
+        data = realloc(data, size + 1);
+        data[size] = buffer[0];
+        size++;
+        free(buffer);
+        buffer = NULL;
+    }
+
+    asprintf(&buffer, T4_DOWNLOAD_RESPONSE, send.name, size, md5, ids[num_threads - 1]);
+    buffer = sendFrame(buffer, send.fd);
+
+
+    //send file
+
+    return NULL;
+}
+
+void downloadSong(char* song, int user_pos) {
+    char* buffer, *file = NULL;
+    int num_songs = 0, found = 0;
+
+    asprintf(&buffer, "\n%sNew request - %s wants to download %s.\n%s", C_GREEN, users[user_pos], song, C_RESET);
+    printF(buffer);
+    free(buffer);
+    buffer = NULL;
+    
+    asprintf(&file, "%s/songs.txt", config.path);
+    int fd_file;
+    fd_file = open(file, O_RDONLY);
+
+    if (fd_file == -1) {
+        asprintf(&buffer,C_BOLDRED "ERROR: %s not found.\n" C_RESET, file);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
+        buffer = sendFrame(buffer, users_fd[user_pos]);
+        return;
+    }
+    
+    readNum(fd_file, &num_songs);
+    for (int i = 0; i < num_songs; i++) {
+        readLine(fd_file, &buffer);
+
+        if (strcmp(buffer, song) == 0) {
+            found = 1;
+            free(buffer);
+            buffer = NULL;
+            break;
+        }
+        free(buffer);
+        buffer = NULL;
+    }
+    close(fd_file);
+
+    if (found == 0) {
+        asprintf(&buffer, "Song not found\n");
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
+        buffer = sendFrame(buffer, users_fd[user_pos]);
+        return;
+    }
+    asprintf(&buffer, "Sending %s to %s\n", song, users[user_pos]);
+    printF(buffer);
+    free(buffer);
+    buffer = NULL;
+
+    free(file);
+    file = NULL;
+    
+    Send send;
+    send.name = song;
+    send.fd = users_fd[user_pos];
+    num_threads++;
+    threads = realloc(threads, sizeof(pthread_t) * (num_threads));
+    pthread_create(&threads[num_threads - 1], NULL, sendFile, &send);
+}
+
+void downloadList(char* list, int user_pos) {
+    char* buffer, *file = NULL;
+    int num_playlists = 0, num_songs = 0, found = 0;
+
+    asprintf(&buffer, "\n%sNew request - %s wants to download the playlist %s.\n%s", C_GREEN, users[user_pos], list, C_RESET);
+    printF(buffer);
+    free(buffer);
+    buffer = NULL;
+    
+    asprintf(&file, "%s/playlists.txt", config.path);
+    int fd_file;
+    fd_file = open(file, O_RDONLY);
+
+    if (fd_file == -1) {
+        asprintf(&buffer,C_BOLDRED "ERROR: %s not found.\n" C_RESET, file);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
+        buffer = sendFrame(buffer, users_fd[user_pos]);
+        return;
+    }
+
+    Playlist playlist;
+    readNum(fd_file, &num_playlists);
+    for (int i = 0; i < num_playlists; i++) {
+        readNum(fd_file, &num_songs);
+        readLine(fd_file, &buffer);
+
+        if (strcmp(buffer, list) == 0) {
+            found = 1;
+            playlist.name = buffer;
+            playlist.num_songs = num_songs;
+            buffer = NULL;
+
+            for (int j = 0; j < num_songs; j++) {
+                readLine(fd_file, &buffer);
+                playlist.songs = realloc(playlist.songs, sizeof(char*) * (j + 1));
+                playlist.songs[j] = buffer;
+                buffer = NULL;
+            }
+            break;
+        }
+
+        for (int j = 0; j < num_songs; j++) {
+            readLine(fd_file, &buffer);
+            free(buffer);
+            buffer = NULL;
+        }
+        free(buffer);
+        buffer = NULL;
+    }
+    close(fd_file);
+
+    if (found == 0) {
+        asprintf(&buffer, "Playlist not found\n");
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
+        buffer = sendFrame(buffer, users_fd[user_pos]);
+        return;
+    }
+    asprintf(&buffer, "Sending %s to %s. A total of %d songs will be sent", list, users[user_pos], playlist.num_songs);
+    printF(buffer);
+    free(buffer);
+    buffer = NULL;
+
+    free(file);
+    file = NULL;
+
+    for (int i = 0; i < playlist.num_songs; i++) {
+        Send send;
+        send.name = playlist.songs[i];
+        send.fd = users_fd[user_pos];
+        num_threads++;
+        threads = realloc(threads, sizeof(pthread_t) * (num_threads));
+        pthread_create(&threads[num_threads - 1], NULL, sendFile, &send);
+    }
+}
 /********************************************************************
  *
  * @Purpose: Handles interactions with connected Bowman users, processing 
@@ -63,7 +269,7 @@ int bowmanHandler(int sock, int user_pos) {
             // Get number of songs and songs
             int num_songs = 0;
             char* file = NULL;
-            asprintf(&file, "%s/songs.txt", config.path); 
+            asprintf(&file, "%s/songs.txt", config.path);
             printF(config.path);
             printF("\n");
             char** songs = readSongs(file, &num_songs);
@@ -99,7 +305,7 @@ int bowmanHandler(int sock, int user_pos) {
                     remaining_space -= song_length; 
                 } else {
                     // Not enough space -> send the current buffer
-                    sendFrame(buffer, sock);
+                    buffer = sendFrame(buffer, sock);
 
                     // Reset the buffer for the next iteration
                     asprintf(&num_songs_str, "%d#", num_songs);
@@ -114,7 +320,7 @@ int bowmanHandler(int sock, int user_pos) {
                 }
             }
             // Enough space -> send the current buffer
-            sendFrame(buffer, sock);
+            buffer = sendFrame(buffer, sock);
             buffer_length = 0;
             remaining_space = 0;
         }
@@ -184,7 +390,7 @@ int bowmanHandler(int sock, int user_pos) {
                         } else {
                             // Not enough space -> send the current buffer
                             printF("\n\n3\n");
-                            sendFrame(buffer, sock);
+                            buffer = sendFrame(buffer, sock);
 
                             // Reset the buffer for the next iteration
                             asprintf(&num_playlists_str, "%d", num_playlists);
@@ -205,7 +411,7 @@ int bowmanHandler(int sock, int user_pos) {
                 } else {
                     // Not enough space -> send the current buffer
                     printF("\n\n1\n");
-                    sendFrame(buffer, sock);
+                    buffer = sendFrame(buffer, sock);
 
                     // Reset the buffer for the next iteration
                     asprintf(&num_playlists_str, "%d", num_playlists);
@@ -221,12 +427,25 @@ int bowmanHandler(int sock, int user_pos) {
                 }   
             }
             printF("\n\n2\n");
-            sendFrame(buffer, sock);
+            buffer = sendFrame(buffer, sock);
         }
         else {
             printF("Wrong frame\n");
             sendError(sock);
         }
+    }
+    else if (frame.type == '3' && strcmp(frame.header, "DOWNLOAD_SONG") == 0) {
+        downloadSong(frame.data, user_pos);
+        frame = freeFrame(frame);
+    }
+    else if (frame.type == '3' && strcmp(frame.header, "DOWNLOAD_LIST") == 0) {
+        asprintf(&buffer, "\n%sNew request - %s wants to download the playlist %s.\n%s", C_GREEN, users[user_pos], frame.data, C_RESET);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+
+        downloadList(frame.data, user_pos);
+        frame = freeFrame(frame);
     }
     else if (frame.type == '6' && strcmp(frame.header, "EXIT") == 0) {
         asprintf(&buffer, T6_OK);

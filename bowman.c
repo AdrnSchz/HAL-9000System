@@ -23,6 +23,9 @@
 User_conf config;
 int discovery_sock, poole_sock = 0;
 char* server_name = NULL;
+pthread_t thread;
+int num_files = 0;
+File* files;
 
 /********************************************************************
  *
@@ -187,6 +190,65 @@ void logout() {
     frame2 = freeFrame(frame2);
 }
 
+void* downloadSong() {
+
+
+    return NULL;
+}
+
+void downloadCommand(char* song) {
+    char* buffer = NULL;
+    Frame frame;
+    int isSong;
+
+    if (song[strlen(song) - 4] == '.') {
+        asprintf(&buffer, T3_DOWNLOAD_SONG, song);
+        isSong = 1;
+    } 
+    else {
+        // conseguir num songs.
+        asprintf(&buffer, T3_DOWNLOAD_LIST, song);
+        isSong = 0;
+    }
+    buffer = sendFrame(buffer, poole_sock);
+    frame = readFrame(poole_sock);
+
+    if (frame.type == '4' && strcmp(frame.header, "NEW_FILE") == 0) {
+        File file;
+        if (getFileData(frame.data, &file) == 0) {
+            printF(C_GREEN);
+            printF("Download started!\n");
+            printF(C_RESET);
+            num_files++;
+            files = realloc(files, sizeof(File) * (num_files));
+            file.data_received = 0;
+            if (isSong == 1) {
+                file.list = NULL;
+                files[num_files - 1] = file;
+            }
+            else {
+                file.list = song;
+                files[num_files - 1] = file;
+            }
+            if (thread == 0) {
+                pthread_create(&thread, NULL, downloadSong, NULL);
+            }
+        }
+        else {
+            printF(C_RED);
+            printF("Song or list does not exist\n");
+            printF(C_RESET);
+        }
+    }
+    else {
+        printF(C_RED);
+        printF("Received wrong frame\n");
+        printF(C_RESET);
+        sendError(poole_sock);
+    }
+    frame = freeFrame(frame);
+}
+
 int frameInput() {
     Frame frame;
     char* buffer = NULL;
@@ -257,6 +319,7 @@ int main(int argc, char *argv[]) {
     int num_songs = 0;
     char* playlist_name = NULL;
     size_t total_bytes = 0;
+    thread = 0;
 
     struct sockaddr_in discovery, poole;
     Frame frame;
@@ -313,6 +376,9 @@ int main(int argc, char *argv[]) {
                 printF(C_RESET);
                 switch (checkCommand(buffer)) {
                     case 0:
+                        // ==================================================
+                        // CONNECT
+                        // ==================================================
                         free(buffer);
                         buffer = NULL;
                         if (poole_sock != 0) {
@@ -326,6 +392,9 @@ int main(int argc, char *argv[]) {
 
                     break;
                     case 1:
+                        // ==================================================
+                        // LOGOUT
+                        // ==================================================
                         free(buffer);
                         buffer = NULL;
                         if (poole_sock != 0) {
@@ -456,13 +525,29 @@ int main(int argc, char *argv[]) {
                         frame = freeFrame(frame);
                         break;
                     case 4:
+                        // ==================================================
+                        // DOWNLOAD
+                        // ==================================================
+                        if (poole_sock == 0) {
+                            printF(C_RED);
+                            printF("ERROR: Not connected to HAL 9000 system\n");
+                            printF(C_RESET);
+                            free(buffer);
+                            buffer = NULL;
+                            break;
+                        }
+                        removeWhiteSpaces(&buffer);
+                        char* song = getSongName(buffer);
+                        downloadCommand(song);
                         free(buffer);
                         buffer = NULL;
-                        printF(C_GREEN);
-                        printF("OK\n");
-                        printF(C_RESET);
+                        free(song);
+                        song = NULL;
                         break;
                     case 5:
+                        // ==================================================
+                        // CHECK DOWNLOAD
+                        // ==================================================
                         free(buffer);
                         buffer = NULL;
                         printF(C_GREEN);
@@ -470,6 +555,9 @@ int main(int argc, char *argv[]) {
                         printF(C_RESET);
                         break;
                     case 6:
+                        // ==================================================
+                        // CLEAR DOWNLOAD
+                        // ==================================================
                         free(buffer);
                         buffer = NULL;
                         printF(C_GREEN);
@@ -477,6 +565,9 @@ int main(int argc, char *argv[]) {
                         printF(C_RESET);
                         break;
                     case 7:
+                        // ==================================================
+                        // UNKNOWN COMMAND
+                        // ==================================================
                         free(buffer);
                         buffer = NULL;
                         printF(C_RED);
@@ -485,6 +576,9 @@ int main(int argc, char *argv[]) {
                         printF(C_RESET);
                         break;
                     default:
+                        // ==================================================
+                        // INVALID COMMAND
+                        // ==================================================
                         free(buffer);
                         buffer = NULL;
                         printF(C_RED);
