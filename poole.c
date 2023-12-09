@@ -28,16 +28,10 @@ int* ids;
 
 void* sendFile(void* arg) {
     Send send = *(Send*) arg;
-    int index = num_threads - 1, found = 0, fd_file, size = 0;
+    int index = num_threads - 1, fd_file, size = 0;
     char* buffer = NULL, *file = NULL, *md5;
 
     asprintf(&file, "%s/%s", config.path, send.name);
-    if (found == 0) {
-        printF("File not found\n");
-        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
-        buffer = sendFrame(buffer, send.fd);
-        return NULL;
-    } 
 
     srand(getpid());
     ids = realloc(ids, sizeof(int) * (num_threads));
@@ -55,10 +49,10 @@ void* sendFile(void* arg) {
     } while (ids[index] == -1);
     
 
-    asprintf(&buffer, "md5sum %s | cut -d' ' -f1", file);
-    system(buffer); // popen to execute the command and save it in md5 variable
-    free(buffer);
-    buffer = NULL;
+    //asprintf(&buffer, "md5sum %s | cut -d' ' -f1", file);
+    //system(buffer); // popen to execute the command and save it in md5 variable
+    //free(buffer);
+    //buffer = NULL;
     asprintf(&md5, "asd");
 
     fd_file = open(file, O_RDONLY);
@@ -97,8 +91,7 @@ void downloadSong(char* song, int user_pos) {
     buffer = NULL;
     
     asprintf(&file, "%s/songs.txt", config.path);
-    int fd_file;
-    fd_file = open(file, O_RDONLY);
+    int fd_file = open(file, O_RDONLY);
 
     if (fd_file == -1) {
         asprintf(&buffer,C_BOLDRED "ERROR: %s not found.\n" C_RESET, file);
@@ -439,11 +432,6 @@ int bowmanHandler(int sock, int user_pos) {
         frame = freeFrame(frame);
     }
     else if (frame.type == '3' && strcmp(frame.header, "DOWNLOAD_LIST") == 0) {
-        asprintf(&buffer, "\n%sNew request - %s wants to download the playlist %s.\n%s", C_GREEN, users[user_pos], frame.data, C_RESET);
-        printF(buffer);
-        free(buffer);
-        buffer = NULL;
-
         downloadList(frame.data, user_pos);
         frame = freeFrame(frame);
     }
