@@ -160,7 +160,6 @@ void downloadSong(char* song, int user_pos) {
 void downloadList(char* list, int user_pos) {
     char* buffer, *file = NULL;
     int num_playlists = 0, num_songs = 0, found = 0;
-    Send* send = malloc(sizeof(Send));
 
     asprintf(&buffer, "\n%sNew request - %s wants to download the playlist %s.\n%s", C_GREEN, users[user_pos], list, C_RESET);
     printF(buffer);
@@ -230,12 +229,13 @@ void downloadList(char* list, int user_pos) {
     file = NULL;
 
     for (int i = 0; i < playlist.num_songs; i++) {
+        Send* send = malloc(sizeof(Send));
         send->name = malloc(strlen(playlist.songs[i]) + 1);
         strcpy(send->name, playlist.songs[i]);
         send->fd_pos = user_pos;
         num_threads++;
         threads = realloc(threads, sizeof(pthread_t) * (num_threads));
-        pthread_create(&threads[num_threads - 1], NULL, sendFile, &send);
+        pthread_create(&threads[num_threads - 1], NULL, sendFile, send);
     }
 }
 /********************************************************************
