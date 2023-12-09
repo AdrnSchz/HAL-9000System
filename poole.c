@@ -92,7 +92,7 @@ void* sendFile(void* arg) {
 void downloadSong(char* song, int user_pos) {
     char* buffer, *file = NULL;
     int num_songs = 0, found = 0;
-    Send send;
+    Send* send = malloc(sizeof(Send));
 
     asprintf(&buffer, "\n%sNew request - %s wants to download %s.\n%s", C_GREEN, users[user_pos], song, C_RESET);
     printF(buffer);
@@ -118,16 +118,16 @@ void downloadSong(char* song, int user_pos) {
 
         if (strcmp(buffer, song) == 0) {
             found = 1;
-            send.name = malloc(strlen(buffer) + 1);
-            strcpy(send.name, buffer);
-            send.fd_pos = user_pos;
+            send->name = malloc(strlen(buffer) + 1);
+            strcpy(send->name, buffer);
+            send->fd_pos = user_pos;
             buffer = NULL;
-            asprintf(&buffer, "pos: %d\n", send.fd_pos);
+            asprintf(&buffer, "pos: %d\n", send->fd_pos);
             printF(buffer);
             free(buffer);
             buffer = NULL;
             printF("before\n");
-            printF(send.name);
+            printF(send->name);
             printF("\nafter\n");
             break;
         }
@@ -154,12 +154,13 @@ void downloadSong(char* song, int user_pos) {
     file = NULL;
     num_threads++;
     threads = realloc(threads, sizeof(pthread_t) * (num_threads));
-    pthread_create(&threads[num_threads - 1], NULL, sendFile, &send);
+    pthread_create(&threads[num_threads - 1], NULL, sendFile, send);
 }
 
 void downloadList(char* list, int user_pos) {
     char* buffer, *file = NULL;
     int num_playlists = 0, num_songs = 0, found = 0;
+    Send* send = malloc(sizeof(Send));
 
     asprintf(&buffer, "\n%sNew request - %s wants to download the playlist %s.\n%s", C_GREEN, users[user_pos], list, C_RESET);
     printF(buffer);
@@ -229,9 +230,9 @@ void downloadList(char* list, int user_pos) {
     file = NULL;
 
     for (int i = 0; i < playlist.num_songs; i++) {
-        Send send;
-        send.name = playlist.songs[i];
-        send.fd_pos = user_pos;
+        send->name = malloc(strlen(playlist.songs[i]) + 1);
+        strcpy(send->name, playlist.songs[i]);
+        send->fd_pos = user_pos;
         num_threads++;
         threads = realloc(threads, sizeof(pthread_t) * (num_threads));
         pthread_create(&threads[num_threads - 1], NULL, sendFile, &send);
