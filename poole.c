@@ -31,13 +31,6 @@ void* sendFile(void* arg) {
     int index = num_threads - 1, fd_file, size = 0;
     char* buffer = NULL, *file = NULL, *md5;
 
-    asprintf(&buffer, "pos: %d\n", send->fd_pos);
-    printF(buffer);
-    free(buffer);
-    buffer = NULL;
-    printF("1.\n");
-    printF(send->name);
-    printF("\n2.\n");
     asprintf(&file, "%s/%s", config.path, send->name);
 
     srand(getpid());
@@ -122,13 +115,6 @@ void downloadSong(char* song, int user_pos) {
             strcpy(send->name, buffer);
             send->fd_pos = user_pos;
             buffer = NULL;
-            asprintf(&buffer, "pos: %d\n", send->fd_pos);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
-            printF("before\n");
-            printF(send->name);
-            printF("\nafter\n");
             break;
         }
         free(buffer);
@@ -185,7 +171,7 @@ void downloadList(char* list, int user_pos) {
     for (int i = 0; i < num_playlists; i++) {
         readNum(fd_file, &num_songs);
         readLine(fd_file, &buffer);
-
+        
         if (strcmp(buffer, list) == 0) {
             found = 1;
             playlist.name = buffer;
