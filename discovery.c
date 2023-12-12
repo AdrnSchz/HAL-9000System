@@ -56,8 +56,6 @@ int connectionHandler(int sock) {
             
             asprintf(&buffer, T1_OK);
             buffer = sendFrame(buffer, sock);
-
-            return -1;
         }
         else if (strcmp(frame.header, "NEW_BOWMAN") == 0) {
             least_users = INT_MAX;
@@ -65,7 +63,7 @@ int connectionHandler(int sock) {
             if (num_servers == 0) {
                 asprintf(&buffer, T1_KO);
                 buffer = sendFrame(buffer, sock);
-                return 0;
+                return -1;
             }
 
             for (int i = 0; i < num_servers; i++) {
@@ -87,6 +85,7 @@ int connectionHandler(int sock) {
             asprintf(&buffer, T1_KO);
             buffer = sendFrame(buffer, sock);
         }
+        return -1;
     }
     else if (frame.type == '6' && strcmp(frame.header, "EXIT") == 0) {
             asprintf(&buffer, T6_OK);
@@ -125,7 +124,7 @@ int connectionHandler(int sock) {
         return -1;
     }
     else if (frame.type == '7') {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("Sent wrong frame\n");
         printF(C_RESET);
     }
@@ -154,7 +153,7 @@ int main(int argc, char *argv[]) {
     clients_fd = (int*) malloc(sizeof(int));
 
     if (argc != 2) {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("Usage: ./discovery <config_file>\n");
         printF(C_RESET);
         return -1;
@@ -164,7 +163,7 @@ int main(int argc, char *argv[]) {
     printF("Reading configuration file\n");
 
     if (checkPort(config.port_poole) == -1 || checkPort(config.port_bow) == -1) {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("ERROR: Invalid poole or bow port.\n");
         printF(C_RESET);
         return -1;
@@ -177,7 +176,7 @@ int main(int argc, char *argv[]) {
     bowman_sock = socket(AF_INET, SOCK_STREAM, 0);
 
     if (poole_sock == -1 || bowman_sock == -1) {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("Error creating socket\n");
         printF(C_RESET);
 

@@ -21,10 +21,10 @@
 #include "connections.h"
 
 User_conf config;
-int discovery_sock, poole_sock = 0;
+int discovery_sock, poole_sock = 0, download_sock = 0;
 char* server_name = NULL;
 pthread_t thread;
-int num_files = 0;
+int num_files = 0, downloading = 0;
 File* files;
 
 /********************************************************************
@@ -35,20 +35,20 @@ File* files;
  * @Return: 0 if successful, -1 otherwise.
  *
  ********************************************************************/
-int configConnection(int* sock, struct sockaddr_in* server) {
+int configConnection(struct sockaddr_in* server) {
 
     if (checkPort(config.port) == -1) {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("ERROR: Invalid port.\n");
         printF(C_RESET);
 
         return -1;
     }
 
-    *sock = socket(AF_INET, SOCK_STREAM, 0);
+    discovery_sock = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (*sock == -1) {
-        printF(C_BOLDRED);
+    if (discovery_sock == -1) {
+        printF(C_RED);
         printF("Error creating socket\n");
         printF(C_RESET);
 
@@ -68,19 +68,18 @@ int configConnection(int* sock, struct sockaddr_in* server) {
  * @Return: ---
  *
  ********************************************************************/
-void connection(struct sockaddr_in poole, struct sockaddr_in discovery, int opt) {
+void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
     char* buffer = NULL, *aux = NULL;
     Frame frame;
 
-    if (opt == 0) {
-        if (connect(discovery_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
-            printF(C_RED);
-            printF("Error trying to connect to load balancer\n");
-            printF(C_RESET);
-            
-            return;
-        }
+    if (connect(discovery_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
+        printF(C_RED);
+        printF("Error trying to connect to load balancer\n");
+        printF(C_RESET);
+        
+        return;
     }
+
 
     asprintf(&buffer, T1_BOWMAN, config.user);
     buffer = sendFrame(buffer, discovery_sock);
@@ -91,18 +90,16 @@ void connection(struct sockaddr_in poole, struct sockaddr_in discovery, int opt)
         server_name = getString(0, '&', frame.data);
         buffer = getString(1 + strlen(server_name), '&', frame.data);
         aux = getString(2 + strlen(server_name) + strlen(buffer), '\0', frame.data);
-        poole = configServer(buffer, atoi(aux));
-        
-
+        *poole = configServer(buffer, atoi(aux));
         free(buffer);
-        buffer = NULL;
         free(aux);
+        buffer = NULL;
         aux = NULL;
 
         poole_sock = socket(AF_INET, SOCK_STREAM, 0);
 
-        if (connect(poole_sock, (struct sockaddr *) &poole, sizeof(poole)) < 0) {
-            printF(C_BOLDRED);
+        if (connect(poole_sock, (struct sockaddr *) poole, sizeof(*poole)) < 0) {
+            printF(C_RED);
             printF("Error trying to connect to HAL 9000 system\n");
             printF(C_RESET);
             return;
@@ -149,6 +146,7 @@ void connection(struct sockaddr_in poole, struct sockaddr_in discovery, int opt)
         sendError(discovery_sock);
     }
     frame = freeFrame(frame);
+    close(discovery_sock);
 }
 
 /********************************************************************
@@ -191,22 +189,77 @@ void logout() {
 }
 
 void* downloadSong() {
+    Frame frame;
 
+    while (downloading != 0) {
+        frame = readFrame(poole_sock);
+        char* tok, *aux = strtok_r(frame.data, "&", &tok);
 
+        int id = atoi(aux);
+        int space = 256 - 3 - atoi(frame.length) - (strlen(aux) + 1);
+        free(aux);
+        
+        for (int i = 0; i < num_files; i++) {
+            if (id == files[i].id) {
+                memcpy(files[i].data + files[i].data_received, frame.data, space);
+                files[i].data_received += space;
+
+                if (files[i].data_received >= files[i].file_size) {
+                    // crate song mp3
+                    printF("MP3 made\n");
+                    
+                    char* path;
+                    asprintf(&path, "%s/%s", config.files_path, files[i].file_name);
+                    int file_fd = open(path, O_WRONLY | O_CREAT, 0666);
+
+                    if (file_fd == -1) {
+                        printF(C_RED);
+                        printF("Error creating the mp3 file\n");
+                        printF(C_RESET);
+                        return NULL;
+                    }
+                    write(file_fd, files[i].data, files[i].file_size);
+                    close(file_fd);
+                    free(path);
+                }
+                break;
+            }
+        }
+        frame = freeFrame(frame);
+    }
     return NULL;
 }
 
-void downloadCommand(char* song) {
+void downloadCommand(char* song) { /*, struct sockaddr_in download*/
     char* buffer = NULL;
     Frame frame;
     int isSong;
 
+    /*
+    if (download_sock == 0) {
+        download_sock = socket(AF_INET, SOCK_STREAM, 0);
+
+        if (connect(download_sock, (struct sockaddr *) &download, sizeof(download)) < 0) {
+            printF(C_RED);
+            printF("Error establishing conection to download\n");
+            printF(C_RESET);
+            return;
+        }
+
+        asprintf(&buffer, "ip: %s | port: %d\n", inet_ntoa(download.sin_addr), ntohs(download.sin_port));
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+    }
+    asprintf(&buffer, "download: %d | poole: %d\n", download_sock, poole_sock);
+    printF(buffer);
+    free(buffer);
+    */
     if (song[strlen(song) - 4] == '.') {
         asprintf(&buffer, T3_DOWNLOAD_SONG, song);
         isSong = 1;
     } 
     else {
-        // conseguir num songs.
         asprintf(&buffer, T3_DOWNLOAD_LIST, song);
         isSong = 0;
     }
@@ -222,6 +275,7 @@ void downloadCommand(char* song) {
             num_files++;
             files = realloc(files, sizeof(File) * (num_files));
             file.data_received = 0;
+            file.data = malloc(file.file_size);
             if (isSong == 1) {
                 file.list = NULL;
                 files[num_files - 1] = file;
@@ -230,6 +284,7 @@ void downloadCommand(char* song) {
                 file.list = song;
                 files[num_files - 1] = file;
             }
+            downloading++;
             if (thread == 0) {
                 pthread_create(&thread, NULL, downloadSong, NULL);
             }
@@ -264,6 +319,7 @@ int frameInput() {
         buffer = NULL;
 
         close(poole_sock);
+        poole_sock = 0;
         frame = freeFrame(frame);
         
         return 6;
@@ -279,7 +335,6 @@ int frameInput() {
 *
 *******************************************************************/
 void sig_handler(int sigsum) {
-
     switch(sigsum) {
         case SIGINT:
             printF("\nAborting...\n");
@@ -327,7 +382,7 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, sig_handler);
 
     if (argc != 2) {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("Usage: ./bowman <config_file>\n");
         printF(C_RESET);
         return -1;
@@ -336,25 +391,22 @@ int main(int argc, char *argv[]) {
     config = readConfigBow(argv[1]);
     checkName(&config.user);
 
-    if (configConnection(&discovery_sock, &discovery) == -1) {
-        return -1;
-    }
-
     asprintf(&buffer, "%s user initialized\n", config.user);
     printF(buffer);
     free(buffer);
     buffer = NULL;
 
-    if (checkPort(config.port) == -1) {
-        printF(C_BOLDRED);
-        printF("ERROR: Invalid port.\n");
+    if (configConnection(&discovery) == -1) {
+        printF(C_RED);
+        printF("Error configuring connection with discovery\n");
         printF(C_RESET);
+        
         return -1;
     }
     
     while(1) {
         FD_ZERO(&readfds);
-        FD_SET(poole_sock, &readfds);
+        //FD_SET(poole_sock, &readfds);
         FD_SET(0, &readfds);
 
         printF(BOLD);
@@ -388,7 +440,7 @@ int main(int argc, char *argv[]) {
                             break;
                         }
 
-                        connection(poole, discovery, 0);
+                        connection(&poole, discovery);
 
                     break;
                     case 1:
@@ -538,7 +590,7 @@ int main(int argc, char *argv[]) {
                         }
                         removeWhiteSpaces(&buffer);
                         char* song = getSongName(buffer);
-                        downloadCommand(song);
+                        downloadCommand(song); /*, poole*/
                         free(buffer);
                         buffer = NULL;
                         free(song);
@@ -588,11 +640,11 @@ int main(int argc, char *argv[]) {
                         break;
                 }
             } 
-            else if (FD_ISSET(poole_sock, &readfds)) {
+            /*else if (FD_ISSET(poole_sock, &readfds)) {
                 if (frameInput() == 6) {
-                    connection(poole, discovery, 1);
+                    connection(&poole, discovery);
                 }
-            }
+            }*/
         }
     }
 

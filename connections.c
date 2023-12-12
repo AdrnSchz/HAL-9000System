@@ -25,7 +25,7 @@ int openConnection(int sock, struct sockaddr_in server, char* server_type) {
     char* buffer;
 
     if (bind(sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
-        asprintf(&buffer, "%sError binding the socket for %s\n%s", C_BOLDRED, server_type, C_RESET);
+        asprintf(&buffer, "%sError binding the socket for %s\n%s", C_RED, server_type, C_RESET);
         printF(buffer);
         free(buffer);
         buffer = NULL;
@@ -46,7 +46,7 @@ int acceptConnection(int* num_clients, int** clients_fd, char* server_type, int 
     *clients_fd[*num_clients] = accept(sock, (struct sockaddr *) &client_addr, &client_len);
 
     if (*clients_fd[*num_clients] < 0) {
-        asprintf(&buffer, "%sError accepting %s socket connection\n%s", C_BOLDRED, server_type, C_RESET);
+        asprintf(&buffer, "%sError accepting %s socket connection\n%s", C_RED, server_type, C_RESET);
         printF(buffer);
         free(buffer);
         buffer = NULL;
@@ -93,9 +93,9 @@ Frame readFrame(int sock) {
     int i, j;
 
     read(sock, buffer, 256);
-    printF("Received frame: ");
-    printF(buffer);
-    printF("\n");
+    //printF("Received frame: ");
+    //printF(buffer);
+    //printF("\n");
     frame.type = buffer[0];
     frame.length[0] = buffer[1];
     frame.length[1] = buffer[2];

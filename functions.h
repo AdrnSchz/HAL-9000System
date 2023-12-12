@@ -11,8 +11,6 @@
 #define _FUNCTIONS_H_
 
 #define _GNU_SOURCE
-#define _XOPEN_SOURCE 500 //threads
-#define _POSIX_C_SOURCE 1 //threads
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>

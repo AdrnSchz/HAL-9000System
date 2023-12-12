@@ -28,11 +28,55 @@ int* ids;
 
 void* sendFile(void* arg) {
     Send* send = (Send*) arg;
-    int index = num_threads - 1, fd_file, size = 0;
-    char* buffer = NULL, *file = NULL, *md5;
+    int index = num_threads - 1, fd_file, size = 0, sent = 0, pipefd[2];
+    char* buffer = NULL, *file = NULL, *md5, *data;
 
     asprintf(&file, "%s/%s", config.path, send->name);
 
+    if (pipe(pipefd) < 0) {
+        printF("Error creating pipe\n");
+        asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
+        buffer = sendFrame(buffer, users_fd[send->fd_pos]);
+        return NULL;
+    }
+
+    // md5sum
+    int pid = fork();
+    switch (pid) {
+        case -1:
+            asprintf(&buffer, C_RED "ERROR: Fork failed.\n" C_RESET);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+            asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
+            buffer = sendFrame(buffer, users_fd[send->fd_pos]);
+            return NULL;
+            break;
+        case 0:
+            //free(file); se tendria q freear
+            for (int i = 0; i < num_users; i++) {
+                free(users[i]);
+            }
+            free(users);
+            free(users_fd);
+            free(threads);
+            free(ids);
+
+            close(pipefd[0]);
+            dup2(pipefd[1], 1);
+            close(pipefd[1]);
+            execlp("md5sum", "md5sum", file, NULL);
+
+        break;
+        default:
+            close(pipefd[1]);
+            md5 = readUntil(pipefd[0], ' ');
+            close(pipefd[0]);
+            wait(NULL);
+        break;
+    }
+
+    // get random(id)
     srand(getpid());
     ids = realloc(ids, sizeof(int) * (num_threads));
     do {
@@ -48,37 +92,53 @@ void* sendFile(void* arg) {
         }
     } while (ids[index] == -1);
 
-    //asprintf(&buffer, "md5sum %s | cut -d' ' -f1", file);
-    //system(buffer); // popen to execute the command and save it in md5 variable
-    //free(buffer);
-    //buffer = NULL;
-    asprintf(&md5, "asd");
-
+    // get size and read file
     fd_file = open(file, O_RDONLY);
     if (fd_file == -1) {
-        asprintf(&buffer,C_RED "ERROR: %s not found.\n" C_RESET, file);
+        asprintf(&buffer, C_RED "ERROR: %s not found.\n" C_RESET, file);
         printF(buffer);
         free(buffer);
         buffer = NULL;
-        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
+        asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
         buffer = sendFrame(buffer, users_fd[send->fd_pos]);
         return NULL;
     }
 
-    char* data;
-    while (read(fd_file, buffer, 1) > 0) {
-        data = realloc(data, size + 1);
-        data[size] = buffer[0];
-        size++;
-        free(buffer);
-        buffer = NULL;
-    }
+    size = (int) lseek(fd_file, 0, SEEK_END);
+    lseek(fd_file, 0, SEEK_SET);
+    data = (char*) malloc(sizeof(char) * size);
+    read(fd_file, data, size);
+    close (fd_file);
 
-    asprintf(&buffer, T4_DOWNLOAD_RESPONSE, send->name, size, md5, ids[num_threads - 1]);
+    // send frame
+    asprintf(&buffer, T4_NEW_FILE, send->name, size, md5, ids[num_threads - 1]);
     buffer = sendFrame(buffer, users_fd[send->fd_pos]);
 
-    //send file
+    asprintf(&buffer, "%d", ids[num_threads -1]);
+    int space = 256 - 3 - 9 - strlen(buffer) - 1;
+    free(buffer);
+    buffer = NULL;
 
+    //send file
+    while (sent < size) {
+        if (size - sent >= space) {
+            asprintf(&buffer, T4_DATA, ids[num_threads - 1]);
+            buffer = realloc(buffer, 256);
+            memcpy(buffer + strlen(buffer), data + sent, space);
+            buffer = sendFrame(buffer, users_fd[send->fd_pos]);
+            sent += space;
+        }
+        else {
+            asprintf(&buffer, T4_DATA, ids[num_threads - 1]);
+            buffer = realloc(buffer, 256);
+            memcpy(buffer + strlen(buffer), data + sent, size - sent);
+            buffer = sendFrame(buffer, users_fd[send->fd_pos]);
+            sent = size;
+            printF("ENDED SENDING\n");
+
+        }
+    }
+    
     return NULL;
 }
 
@@ -96,11 +156,11 @@ void downloadSong(char* song, int user_pos) {
     int fd_file = open(file, O_RDONLY);
 
     if (fd_file == -1) {
-        asprintf(&buffer,C_BOLDRED "ERROR: %s not found.\n" C_RESET, file);
+        asprintf(&buffer,C_RED "ERROR: %s not found.\n" C_RESET, file);
         printF(buffer);
         free(buffer);
         buffer = NULL;
-        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
+        asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
         buffer = sendFrame(buffer, users_fd[user_pos]);
         return;
     }
@@ -127,7 +187,7 @@ void downloadSong(char* song, int user_pos) {
         printF(buffer);
         free(buffer);
         buffer = NULL;
-        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
+        asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
         buffer = sendFrame(buffer, users_fd[user_pos]);
         return;
     }
@@ -157,11 +217,11 @@ void downloadList(char* list, int user_pos) {
     fd_file = open(file, O_RDONLY);
 
     if (fd_file == -1) {
-        asprintf(&buffer,C_BOLDRED "ERROR: %s not found.\n" C_RESET, file);
+        asprintf(&buffer,C_RED "ERROR: %s not found.\n" C_RESET, file);
         printF(buffer);
         free(buffer);
         buffer = NULL;
-        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
+        asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
         buffer = sendFrame(buffer, users_fd[user_pos]);
         return;
     }
@@ -202,7 +262,7 @@ void downloadList(char* list, int user_pos) {
         printF(buffer);
         free(buffer);
         buffer = NULL;
-        asprintf(&buffer, T4_DOWNLOAD_RESPONSE, "-", 0, "-", -1);
+        asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
         buffer = sendFrame(buffer, users_fd[user_pos]);
         return;
     }
@@ -447,7 +507,7 @@ int bowmanHandler(int sock, int user_pos) {
         return -1;
     }
     else if (frame.type == '7') {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("Sent wrong frame\n");
         printF(C_RESET);
     }
@@ -529,36 +589,13 @@ void logout() {
     int disc_sock;
     struct sockaddr_in discovery;
 
-    for (int i = 0; i < num_users; i++) {
-        asprintf(&buffer, T6_POOLE, config.server);
-        buffer = sendFrame(buffer, users_fd[i]);
-
-        frame = readFrame(users_fd[i]);
-
-        if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
-            asprintf(&buffer, "%sDisconnected user %s\n%s", C_GREEN, users[i], C_RESET);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
-            close(users_fd[i]);
-            free(users[i]);
-            users[i] = NULL;
-        }
-        else {
-            asprintf(&buffer, "%sCouldn't close %s user connection\n%s", C_RED, users[i], C_RESET);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
-        }
-        frame = freeFrame(frame);
-    }
-
+    // Close Discovery connection
     discovery = configServer(config.discovery_ip, config.discovery_port);
 
     disc_sock = socket(AF_INET, SOCK_STREAM, 0);
 
     if (disc_sock == -1) {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("Error creating socket\n");
         printF(C_RESET);
 
@@ -566,7 +603,7 @@ void logout() {
     }
 
     if (connect(disc_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("Error connecting to the server!\n");
         printF(C_RESET);
 
@@ -591,6 +628,32 @@ void logout() {
         buffer = NULL;
     }
     frame = freeFrame(frame);
+
+    // Close Bowman connections
+
+    for (int i = 0; i < num_users; i++) {
+        asprintf(&buffer, T6_POOLE, config.server);
+        buffer = sendFrame(buffer, users_fd[i]);
+
+        frame = readFrame(users_fd[i]);
+
+        if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
+            asprintf(&buffer, "%sDisconnected user %s\n%s", C_GREEN, users[i], C_RESET);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+            close(users_fd[i]);
+            free(users[i]);
+            users[i] = NULL;
+        }
+        else {
+            asprintf(&buffer, "%sCouldn't close %s user connection\n%s", C_RED, users[i], C_RESET);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+        }
+        frame = freeFrame(frame);
+    }
 }
 
 void sig_handler(int sigsum) {
@@ -627,7 +690,7 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, sig_handler);
     
     if (argc != 2) {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("Usage: ./poole <config_file>\n");
         printF(C_RESET);
         return -1;
@@ -638,7 +701,7 @@ int main(int argc, char *argv[]) {
 
 
     if (checkPort(config.discovery_port) == -1 || checkPort(config.user_port) == -1) {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("ERROR: Invalid port.\n");
         printF(C_RESET);
 
@@ -650,7 +713,7 @@ int main(int argc, char *argv[]) {
     disc_sock = socket(AF_INET, SOCK_STREAM, 0);
 
     if (disc_sock == -1) {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("Error creating socket\n");
         printF(C_RESET);
 
@@ -663,7 +726,7 @@ int main(int argc, char *argv[]) {
     buffer = NULL;
 
     if (connect(disc_sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("Error connecting to the server!\n");
         printF(C_RESET);
 
@@ -694,7 +757,7 @@ int main(int argc, char *argv[]) {
         }
     }
     else {
-        printF(C_BOLDRED);
+        printF(C_RED);
         printF("Error trying to connect to HAL 9000 system\n");
         printF(C_RESET);
         sendError(disc_sock);

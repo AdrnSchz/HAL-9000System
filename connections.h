@@ -24,8 +24,8 @@
 #define T2_PLAYLISTS_RESPONSE "218PLAYLISTS_RESPONSE%s" //%s = numplaylist\0
 #define T3_DOWNLOAD_SONG "313DOWNLOAD_SONG%s" //%s = songname
 #define T3_DOWNLOAD_LIST "313DOWNLOAD_LIST%s" //%s = playlistname
-#define T4_DOWNLOAD_RESPONSE "408NEW_FILE%s&%d&%s&%d" //songname&filesize&MD5&id
-#define T4_SEND "404SEND%s" //%s = id
+#define T4_NEW_FILE "408NEW_FILE%s&%d&%s&%d" //songname&filesize&MD5&id
+#define T4_DATA "409FILE_DATA%d&" //id&data
 #define T6 "604EXIT%s"
 #define T6_POOLE "608SHUTDOWN%s"
 #define T6_OK "606CON_OK"
