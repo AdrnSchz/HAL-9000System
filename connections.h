@@ -140,7 +140,7 @@ Frame readFrame(int sock);
  * @Return: A null pointer after freeing the buffer.
  *
  ********************************************************************/
-char* sendFrame(char* buffer, int sock);
+char* sendFrame(char* buffer, int sock, int len);
 
 /********************************************************************
  *

@@ -105,7 +105,7 @@ Frame readFrame(int sock) {
         frame.header[i] = buffer[i + 3];
     }
     frame.header[i] = '\0';
-    frame.data = (char*) malloc(strlen(buffer) - i - 2);
+    frame.data = (char*) malloc(256 - i - 2);
     for (j = 0; buffer[j + i + 3] != '\0'; j++) {
         frame.data[j] = buffer[j + i + 3];
     }
@@ -117,16 +117,16 @@ Frame readFrame(int sock) {
     return frame;
 }
 
-char* sendFrame(char* buffer, int sock) {
-    int len = strlen(buffer);
+char* sendFrame(char* buffer, int sock, int len) {
+    //int len = strlen(buffer);
     buffer = (char*) realloc(buffer, 256);
     for (int i = len; i < 256; i++) {
         buffer[i] = '\0';
     }
     write(sock, buffer, 256);
-    printF("Sending frame: ");
-    printF(buffer);
-    printF("\n");
+    //printF("Sending frame: ");
+    //printF(buffer);
+    //printF("\n");
     free(buffer);
     buffer = NULL;
 

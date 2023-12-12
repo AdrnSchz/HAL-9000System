@@ -55,14 +55,14 @@ int connectionHandler(int sock) {
             buffer = NULL;
             
             asprintf(&buffer, T1_OK);
-            buffer = sendFrame(buffer, sock);
+            buffer = sendFrame(buffer, sock, strlen(buffer));
         }
         else if (strcmp(frame.header, "NEW_BOWMAN") == 0) {
             least_users = INT_MAX;
 
             if (num_servers == 0) {
                 asprintf(&buffer, T1_KO);
-                buffer = sendFrame(buffer, sock);
+                buffer = sendFrame(buffer, sock, strlen(buffer));
                 return -1;
             }
 
@@ -79,17 +79,17 @@ int connectionHandler(int sock) {
             servers[pos].num_users++;
             
             asprintf(&buffer, T1_OK_BOW, servers[pos].name, servers[pos].ip, servers[pos].port);
-            buffer = sendFrame(buffer, sock);
+            buffer = sendFrame(buffer, sock, strlen(buffer));
         }
         else {
             asprintf(&buffer, T1_KO);
-            buffer = sendFrame(buffer, sock);
+            buffer = sendFrame(buffer, sock, strlen(buffer));
         }
         return -1;
     }
     else if (frame.type == '6' && strcmp(frame.header, "EXIT") == 0) {
             asprintf(&buffer, T6_OK);
-            buffer = sendFrame(buffer, sock);
+            buffer = sendFrame(buffer, sock, strlen(buffer));
             asprintf(&buffer, "\n%sUser disconnected from server %s%s\n", C_RED, frame.data, C_RESET);
             printF(buffer);
             free(buffer);
@@ -105,7 +105,7 @@ int connectionHandler(int sock) {
     }
     else if (frame.type == '6' && strcmp(frame.header, "SHUTDOWN") == 0) {
         asprintf(&buffer, T6_OK);
-        buffer = sendFrame(buffer, sock);
+        buffer = sendFrame(buffer, sock, strlen(buffer));
         asprintf(&buffer, "\n%sServer %s got unexpectedly disconnected\n%s", C_RED, frame.data, C_RESET);
         printF(buffer);
         free(buffer);

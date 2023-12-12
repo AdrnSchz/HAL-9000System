@@ -36,7 +36,7 @@ void* sendFile(void* arg) {
     if (pipe(pipefd) < 0) {
         printF("Error creating pipe\n");
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
-        buffer = sendFrame(buffer, users_fd[send->fd_pos]);
+        buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
         return NULL;
     }
 
@@ -49,7 +49,7 @@ void* sendFile(void* arg) {
             free(buffer);
             buffer = NULL;
             asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
-            buffer = sendFrame(buffer, users_fd[send->fd_pos]);
+            buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
             return NULL;
             break;
         case 0:
@@ -100,7 +100,7 @@ void* sendFile(void* arg) {
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
-        buffer = sendFrame(buffer, users_fd[send->fd_pos]);
+        buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
         return NULL;
     }
 
@@ -112,7 +112,7 @@ void* sendFile(void* arg) {
 
     // send frame
     asprintf(&buffer, T4_NEW_FILE, send->name, size, md5, ids[num_threads - 1]);
-    buffer = sendFrame(buffer, users_fd[send->fd_pos]);
+    buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
 
     asprintf(&buffer, "%d", ids[num_threads -1]);
     int space = 256 - 3 - 9 - strlen(buffer) - 1;
@@ -125,14 +125,14 @@ void* sendFile(void* arg) {
             asprintf(&buffer, T4_DATA, ids[num_threads - 1]);
             buffer = realloc(buffer, 256);
             memcpy(buffer + strlen(buffer), data + sent, space);
-            buffer = sendFrame(buffer, users_fd[send->fd_pos]);
+            buffer = sendFrame(buffer, users_fd[send->fd_pos], space);
             sent += space;
         }
         else {
             asprintf(&buffer, T4_DATA, ids[num_threads - 1]);
             buffer = realloc(buffer, 256);
             memcpy(buffer + strlen(buffer), data + sent, size - sent);
-            buffer = sendFrame(buffer, users_fd[send->fd_pos]);
+            buffer = sendFrame(buffer, users_fd[send->fd_pos], size - sent);
             sent = size;
             printF("ENDED SENDING\n");
 
@@ -161,7 +161,7 @@ void downloadSong(char* song, int user_pos) {
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
-        buffer = sendFrame(buffer, users_fd[user_pos]);
+        buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
         return;
     }
     
@@ -188,7 +188,7 @@ void downloadSong(char* song, int user_pos) {
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
-        buffer = sendFrame(buffer, users_fd[user_pos]);
+        buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
         return;
     }
     asprintf(&buffer, "Sending %s to %s\n", song, users[user_pos]);
@@ -222,7 +222,7 @@ void downloadList(char* list, int user_pos) {
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
-        buffer = sendFrame(buffer, users_fd[user_pos]);
+        buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
         return;
     }
 
@@ -263,7 +263,7 @@ void downloadList(char* list, int user_pos) {
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
-        buffer = sendFrame(buffer, users_fd[user_pos]);
+        buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
         return;
     }
     asprintf(&buffer, "Sending %s to %s. A total of %d songs will be sent", list, users[user_pos], playlist.num_songs);
@@ -305,7 +305,7 @@ int bowmanHandler(int sock, int user_pos) {
     if (frame.type == '1' && strcmp(frame.header, "NEW_BOWMAN") == 0) {
         
         asprintf(&buffer, T1_OK);
-        buffer = sendFrame(buffer, sock);
+        buffer = sendFrame(buffer, sock, strlen(buffer));
         
         users[user_pos] = getString(0, '\0', frame.data);
         asprintf(&buffer, "%s\nNew user connected: %s.\n%s", C_GREEN, users[user_pos], C_RESET);
@@ -359,7 +359,7 @@ int bowmanHandler(int sock, int user_pos) {
                     remaining_space -= song_length; 
                 } else {
                     // Not enough space -> send the current buffer
-                    buffer = sendFrame(buffer, sock);
+                    buffer = sendFrame(buffer, sock, strlen(buffer));
 
                     // Reset the buffer for the next iteration
                     asprintf(&num_songs_str, "%d#", num_songs);
@@ -374,7 +374,7 @@ int bowmanHandler(int sock, int user_pos) {
                 }
             }
             // Enough space -> send the current buffer
-            buffer = sendFrame(buffer, sock);
+            buffer = sendFrame(buffer, sock, strlen(buffer));
             buffer_length = 0;
             remaining_space = 0;
         }
@@ -444,7 +444,7 @@ int bowmanHandler(int sock, int user_pos) {
                         } else {
                             // Not enough space -> send the current buffer
                             printF("\n\n3\n");
-                            buffer = sendFrame(buffer, sock);
+                            buffer = sendFrame(buffer, sock, strlen(buffer));
 
                             // Reset the buffer for the next iteration
                             asprintf(&num_playlists_str, "%d", num_playlists);
@@ -465,7 +465,7 @@ int bowmanHandler(int sock, int user_pos) {
                 } else {
                     // Not enough space -> send the current buffer
                     printF("\n\n1\n");
-                    buffer = sendFrame(buffer, sock);
+                    buffer = sendFrame(buffer, sock, strlen(buffer));
 
                     // Reset the buffer for the next iteration
                     asprintf(&num_playlists_str, "%d", num_playlists);
@@ -481,7 +481,7 @@ int bowmanHandler(int sock, int user_pos) {
                 }   
             }
             printF("\n\n2\n");
-            buffer = sendFrame(buffer, sock);
+            buffer = sendFrame(buffer, sock, strlen(buffer));
         }
         else {
             printF("Wrong frame\n");
@@ -498,7 +498,7 @@ int bowmanHandler(int sock, int user_pos) {
     }
     else if (frame.type == '6' && strcmp(frame.header, "EXIT") == 0) {
         asprintf(&buffer, T6_OK);
-        buffer = sendFrame(buffer, sock);
+        buffer = sendFrame(buffer, sock, strlen(buffer));
         asprintf(&buffer, "\n%sUser %s disconnected%s\n", C_RED, frame.data, C_RESET);
         printF(buffer);
         free(buffer);
@@ -611,7 +611,7 @@ void logout() {
     }
 
     asprintf(&buffer, T6_POOLE, config.server);
-    buffer = sendFrame(buffer, disc_sock);
+    buffer = sendFrame(buffer, disc_sock, strlen(buffer));
 
     frame = readFrame(disc_sock);
     if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
@@ -633,7 +633,7 @@ void logout() {
 
     for (int i = 0; i < num_users; i++) {
         asprintf(&buffer, T6_POOLE, config.server);
-        buffer = sendFrame(buffer, users_fd[i]);
+        buffer = sendFrame(buffer, users_fd[i], strlen(buffer));
 
         frame = readFrame(users_fd[i]);
 
@@ -734,7 +734,7 @@ int main(int argc, char *argv[]) {
     }
 
     asprintf(&buffer, T1_POOLE, config.server, config.user_ip, config.user_port);
-    buffer = sendFrame(buffer, disc_sock);
+    buffer = sendFrame(buffer, disc_sock, strlen(buffer));
 
     frame = readFrame(disc_sock);
 

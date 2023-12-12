@@ -82,7 +82,7 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
 
 
     asprintf(&buffer, T1_BOWMAN, config.user);
-    buffer = sendFrame(buffer, discovery_sock);
+    buffer = sendFrame(buffer, discovery_sock, strlen(buffer));
 
     frame = readFrame(discovery_sock);
 
@@ -106,7 +106,7 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
         }
 
         asprintf(&buffer, T1_BOWMAN, config.user);
-        buffer = sendFrame(buffer, poole_sock);
+        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
         
         frame = freeFrame(frame);
         frame = readFrame(poole_sock);
@@ -160,11 +160,11 @@ void logout() {
     Frame frame, frame2;
 
     asprintf(&buffer, T6, config.user);
-    buffer = sendFrame(buffer, poole_sock);
+    buffer = sendFrame(buffer, poole_sock, strlen(buffer));
     frame = readFrame(poole_sock);
     
     asprintf(&buffer, T6, server_name);
-    buffer = sendFrame(buffer, discovery_sock);
+    buffer = sendFrame(buffer, discovery_sock, strlen(buffer));
     frame2 = readFrame(discovery_sock);
     if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0 && frame2.type == '6' && strcmp(frame2.header, "CON_OK") == 0) {                    
         printF(C_GREEN);
@@ -193,15 +193,19 @@ void* downloadSong() {
 
     while (downloading != 0) {
         frame = readFrame(poole_sock);
-        char* tok, *aux = strtok_r(frame.data, "&", &tok);
-
+        //char* tok, *aux = strtok_r(frame.data, "&", &tok);
+        char* aux = getString(0, '&', frame.data);
+        
         int id = atoi(aux);
-        int space = 256 - 3 - atoi(frame.length) - (strlen(aux) + 1);
-        free(aux);
+        int space = 256 - 3 - strlen(frame.header) - (strlen(aux) + 1);
         
         for (int i = 0; i < num_files; i++) {
             if (id == files[i].id) {
-                memcpy(files[i].data + files[i].data_received, frame.data, space);
+                if (files[i].data_received + space > files[i].file_size) {
+                    space = files[i].file_size - files[i].data_received;
+                }
+                memcpy(files[i].data + files[i].data_received, frame.data + strlen(aux) + 1, space);
+                
                 files[i].data_received += space;
 
                 if (files[i].data_received >= files[i].file_size) {
@@ -218,10 +222,12 @@ void* downloadSong() {
                         printF(C_RESET);
                         return NULL;
                     }
+                    files[i].data[4] = "\0";
                     write(file_fd, files[i].data, files[i].file_size);
                     close(file_fd);
                     free(path);
                 }
+                printF("MP3 made 2\n");
                 break;
             }
         }
@@ -263,7 +269,7 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
         asprintf(&buffer, T3_DOWNLOAD_LIST, song);
         isSong = 0;
     }
-    buffer = sendFrame(buffer, poole_sock);
+    buffer = sendFrame(buffer, poole_sock, strlen(buffer));
     frame = readFrame(poole_sock);
 
     if (frame.type == '4' && strcmp(frame.header, "NEW_FILE") == 0) {
@@ -312,7 +318,7 @@ int frameInput() {
 
     if (frame.type == '6' && strcmp(frame.header, "SHUTDOWN") == 0) {
         asprintf(&buffer, T6_OK);
-        buffer = sendFrame(buffer, poole_sock);
+        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
         asprintf(&buffer, "\n%sServer %s got unexpectedly disconnected\n%s", C_RED, frame.data, C_RESET);
         printF(buffer);
         free(buffer);
@@ -469,7 +475,7 @@ int main(int argc, char *argv[]) {
                         }
                         
                         asprintf(&buffer, T2_SONGS);
-                        buffer = sendFrame(buffer, poole_sock);
+                        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
                         alreadyPrinted = 0;
 
                         while (1) {
@@ -519,7 +525,7 @@ int main(int argc, char *argv[]) {
                         }
                         
                         asprintf(&buffer, T2_PLAYLISTS);
-                        buffer = sendFrame(buffer, poole_sock);
+                        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
                         alreadyPrinted = 0;
 
                         frame = readFrame(poole_sock);
