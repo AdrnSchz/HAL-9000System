@@ -116,29 +116,25 @@ void* sendFile(void* arg) {
 
     asprintf(&buffer, "%d", ids[num_threads -1]);
     int space = 256 - 3 - 9 - strlen(buffer) - 1;
+    int occupied = 3 + 9 + strlen(buffer) + 1;
     free(buffer);
     buffer = NULL;
 
     //send file
     while (sent < size) {
-        if (size - sent >= space) {
-            asprintf(&buffer, T4_DATA, ids[num_threads - 1]);
-            buffer = realloc(buffer, 256);
-            memcpy(buffer + strlen(buffer), data + sent, space);
-            buffer = sendFrame(buffer, users_fd[send->fd_pos], space);
-            sent += space;
+        if (size - sent < space) {
+            space = size - sent;
         }
-        else {
-            asprintf(&buffer, T4_DATA, ids[num_threads - 1]);
-            buffer = realloc(buffer, 256);
-            memcpy(buffer + strlen(buffer), data + sent, size - sent);
-            buffer = sendFrame(buffer, users_fd[send->fd_pos], size - sent);
-            sent = size;
-            printF("ENDED SENDING\n");
-
-        }
+        asprintf(&buffer, T4_DATA, ids[num_threads - 1]);
+        buffer = realloc(buffer, 256);
+        memcpy(buffer + strlen(buffer), data + sent, space);
+        buffer = sendFrame(buffer, users_fd[send->fd_pos], space + occupied);
+        sent += space;
+        free(buffer);
+        buffer = NULL;
     }
-    
+    printF("ENDED SENDING\n");
+
     return NULL;
 }
 

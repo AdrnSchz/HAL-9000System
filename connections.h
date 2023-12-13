@@ -62,6 +62,7 @@ typedef struct {
     int id;
     char* data;
     int data_received;
+    int fd;
 } File;
 
 /**

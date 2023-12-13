@@ -193,9 +193,8 @@ void* downloadSong() {
 
     while (downloading != 0) {
         frame = readFrame(poole_sock);
-        //char* tok, *aux = strtok_r(frame.data, "&", &tok);
         char* aux = getString(0, '&', frame.data);
-        
+
         int id = atoi(aux);
         int space = 256 - 3 - strlen(frame.header) - (strlen(aux) + 1);
         
@@ -204,30 +203,20 @@ void* downloadSong() {
                 if (files[i].data_received + space > files[i].file_size) {
                     space = files[i].file_size - files[i].data_received;
                 }
-                memcpy(files[i].data + files[i].data_received, frame.data + strlen(aux) + 1, space);
-                
+                files[i].data = malloc(space);
+                memset(files[i].data, 65, space);
+                memcpy(files[i].data, frame.data + strlen(aux) + 1, space);
                 files[i].data_received += space;
+                
+                write(files[i].fd, files[i].data, space);
+                free(files[i].data);
+                files[i].data = NULL;
 
                 if (files[i].data_received >= files[i].file_size) {
-                    // crate song mp3
                     printF("MP3 made\n");
-                    
-                    char* path;
-                    asprintf(&path, "%s/%s", config.files_path, files[i].file_name);
-                    int file_fd = open(path, O_WRONLY | O_CREAT, 0666);
-
-                    if (file_fd == -1) {
-                        printF(C_RED);
-                        printF("Error creating the mp3 file\n");
-                        printF(C_RESET);
-                        return NULL;
-                    }
-                    files[i].data[4] = "\0";
-                    write(file_fd, files[i].data, files[i].file_size);
-                    close(file_fd);
-                    free(path);
+                    close(files[i].fd);
+                    downloading--;
                 }
-                printF("MP3 made 2\n");
                 break;
             }
         }
@@ -281,7 +270,18 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
             num_files++;
             files = realloc(files, sizeof(File) * (num_files));
             file.data_received = 0;
-            file.data = malloc(file.file_size);
+            file.data = NULL;
+            char* path;
+            asprintf(&path, "%s/%s", config.files_path, file.file_name);
+            file.fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
+    
+            if (file.fd == -1) {
+                printF(C_RED);
+                printF("Error creating/opening the mp3 file\n");
+                printF(C_RESET);
+                return;
+            }
+            free(path);
             if (isSong == 1) {
                 file.list = NULL;
                 files[num_files - 1] = file;
@@ -291,6 +291,7 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
                 files[num_files - 1] = file;
             }
             downloading++;
+            
             if (thread == 0) {
                 pthread_create(&thread, NULL, downloadSong, NULL);
             }
