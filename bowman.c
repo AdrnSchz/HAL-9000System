@@ -267,7 +267,6 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
             num_files++;
             files = realloc(files, sizeof(File) * (num_files));
             file.data_received = 0;
-            file.data = NULL;
             char* path;
             asprintf(&path, "%s/%s", config.files_path, file.file_name);
             file.fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);

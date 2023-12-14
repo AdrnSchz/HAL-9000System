@@ -60,7 +60,6 @@ typedef struct {
     int file_size;
     char* md5;
     int id;
-    char* data;
     int data_received;
     int fd;
 } File;
