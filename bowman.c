@@ -203,14 +203,9 @@ void* downloadSong() {
                 if (files[i].data_received + space > files[i].file_size) {
                     space = files[i].file_size - files[i].data_received;
                 }
-                files[i].data = malloc(space);
-                memset(files[i].data, 65, space);
-                memcpy(files[i].data, frame.data + strlen(aux) + 1, space);
                 files[i].data_received += space;
                 
-                write(files[i].fd, files[i].data, space);
-                free(files[i].data);
-                files[i].data = NULL;
+                write(files[i].fd, frame.data + strlen(aux) + 1, space);
 
                 if (files[i].data_received >= files[i].file_size) {
                     printF("MP3 made\n");
@@ -221,6 +216,8 @@ void* downloadSong() {
             }
         }
         frame = freeFrame(frame);
+        free(aux);
+        aux = NULL;
     }
     return NULL;
 }
@@ -292,7 +289,7 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
             }
             downloading++;
             
-            if (thread == 0) {
+            if (thread == 0) { // cambiar esto
                 pthread_create(&thread, NULL, downloadSong, NULL);
             }
         }
