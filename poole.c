@@ -28,53 +28,23 @@ int* ids;
 
 void* sendFile(void* arg) {
     Send* send = (Send*) arg;
-    int index = num_threads - 1, fd_file, size = 0, sent = 0, pipefd[2];
-    char* buffer = NULL, *file = NULL, *md5, *data;
+    int index = num_threads - 1, fd_file, size = 0, sent = 0;
+    char* buffer = NULL, *file = NULL, *md5 = NULL, *data;
 
-    asprintf(&file, "%s/%s", config.path, send->name);
+     asprintf(&file, "%s/%s", config.path, send->name);
 
-    if (pipe(pipefd) < 0) {
-        printF("Error creating pipe\n");
+    // md5sum
+    getMd5(file, &md5);
+    if (md5 == NULL) {
+        asprintf(&buffer, C_RED "Error getting md5sum.\n" C_RESET);
+        printF(buffer);
+        free(buffer);
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
         buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
         return NULL;
     }
-
-    // md5sum
-    int pid = fork();
-    switch (pid) {
-        case -1:
-            asprintf(&buffer, C_RED "ERROR: Fork failed.\n" C_RESET);
-            printF(buffer);
-            free(buffer);
-            buffer = NULL;
-            asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
-            buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
-            return NULL;
-            break;
-        case 0:
-            //free(file); se tendria q freear
-            for (int i = 0; i < num_users; i++) {
-                free(users[i]);
-            }
-            free(users);
-            free(users_fd);
-            free(threads);
-            free(ids);
-
-            close(pipefd[0]);
-            dup2(pipefd[1], 1);
-            close(pipefd[1]);
-            execlp("md5sum", "md5sum", file, NULL);
-
-        break;
-        default:
-            close(pipefd[1]);
-            md5 = readUntil(pipefd[0], ' ');
-            close(pipefd[0]);
-            wait(NULL);
-        break;
-    }
+    file = NULL;
+    asprintf(&file, "%s/%s", config.path, send->name);
 
     // get random(id)
     srand(getpid());
@@ -133,7 +103,18 @@ void* sendFile(void* arg) {
         free(buffer);
         buffer = NULL;
     }
-    printF("ENDED SENDING\n");
+    Frame frame = readFrame(users_fd[send->fd_pos]);
+
+    if (frame.type == '5' && strcmp(frame.header, "CHECK_OK") == 0) asprintf(&buffer, "%sSuccessfully sent %s to %s\n%s", C_GREEN, send->name, users[send->fd_pos], C_RESET);
+    else asprintf(&buffer, "%sError sending %s to %s\n%s", C_RED, send->name, users[send->fd_pos], C_RESET);
+    printF(buffer);
+    free(buffer);
+    free(file);
+    free(md5);
+    free(data);
+    free(send->name);
+    free(send);
+    frame = freeFrame(frame);
 
     return NULL;
 }

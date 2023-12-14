@@ -26,6 +26,8 @@
 #define T3_DOWNLOAD_LIST "313DOWNLOAD_LIST%s" //%s = playlistname
 #define T4_NEW_FILE "408NEW_FILE%s&%d&%s&%d" //songname&filesize&MD5&id
 #define T4_DATA "409FILE_DATA%d&" //id&data
+#define T5_OK "508CHECK_OK"
+#define T5_KO "508CHECK_KO"
 #define T6 "604EXIT%s"
 #define T6_POOLE "608SHUTDOWN%s"
 #define T6_OK "606CON_OK"

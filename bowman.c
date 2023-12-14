@@ -190,6 +190,7 @@ void logout() {
 
 void* downloadSong() {
     Frame frame;
+    char* buffer = NULL;
 
     while (downloading != 0) {
         frame = readFrame(poole_sock);
@@ -208,10 +209,29 @@ void* downloadSong() {
                 write(files[i].fd, frame.data + strlen(aux) + 1, space);
 
                 if (files[i].data_received >= files[i].file_size) {
-                    printF("MP3 made\n");
                     close(files[i].fd);
                     files[i].fd = 0;
                     downloading--;
+                    char* path;
+                    char* md5 = NULL;
+                    asprintf(&path, "%s/%s", config.files_path, files[i].file_name);
+                    getMd5(path, &md5);
+
+                    if (md5 == NULL || strcmp(md5, files[i].md5) != 0) {
+                        printF(C_RED);
+                        printF("Error in the integrity of the file\n");
+                        printF(C_RESET);
+                        asprintf(&buffer, T5_KO);
+                        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
+
+                    }
+                    else {
+                        printF("MP3 made\n");
+                        asprintf(&buffer, T5_OK);
+                        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
+                    }
+                    free(md5);
+                    path = NULL;
                 }
                 break;
             }

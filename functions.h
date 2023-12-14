@@ -125,4 +125,5 @@ char* getString(int from, char until, char* string);
  ********************************************************************/
 char* getSongName(char* string);
 
+void getMd5(char* file, char** md5);
 #endif

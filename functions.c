@@ -216,3 +216,39 @@ char* getSongName(char* string) {
     
     return buffer;
 }
+
+
+void getMd5(char* file, char** md5) {
+    int pipefd[2], len = strlen(file);
+    char path[len + 1];
+    
+    if (pipe(pipefd) < 0) {
+        return;
+    }
+
+    switch (fork()) {
+        case -1:
+            return;
+            break;
+        case 0:
+            
+            for (size_t i = 0; i < strlen(file); i++) {
+                path[i] = file[i];
+            }
+            path[len] = '\0';
+            free(file);
+
+            close(pipefd[0]);
+            dup2(pipefd[1], 1);
+            close(pipefd[1]);
+            execlp("md5sum", "md5sum", path, NULL);
+        break;
+        default:
+            free(file);
+            close(pipefd[1]);
+            *md5 = readUntil(pipefd[0], ' ');
+            close(pipefd[0]);
+            wait(NULL);
+        break;
+    }
+}
