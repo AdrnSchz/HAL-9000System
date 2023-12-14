@@ -210,6 +210,7 @@ void* downloadSong() {
                 if (files[i].data_received >= files[i].file_size) {
                     printF("MP3 made\n");
                     close(files[i].fd);
+                    files[i].fd = 0;
                     downloading--;
                 }
                 break;
@@ -267,6 +268,7 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
             num_files++;
             files = realloc(files, sizeof(File) * (num_files));
             file.data_received = 0;
+
             char* path;
             asprintf(&path, "%s/%s", config.files_path, file.file_name);
             file.fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
@@ -278,6 +280,7 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
                 return;
             }
             free(path);
+
             if (isSong == 1) {
                 file.list = NULL;
                 files[num_files - 1] = file;
@@ -288,7 +291,7 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
             }
             downloading++;
             
-            if (thread == 0) { // cambiar esto
+            if (downloading - 1 == 0) { // cambiar esto
                 pthread_create(&thread, NULL, downloadSong, NULL);
             }
         }
@@ -648,6 +651,10 @@ int main(int argc, char *argv[]) {
                     connection(&poole, discovery);
                 }
             }*/
+        }
+        if (downloading == 0 && thread != 0) {
+            pthread_join(thread, NULL);
+            thread = 0;
         }
     }
 
