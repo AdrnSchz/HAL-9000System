@@ -358,7 +358,7 @@ void checkDownload() {
             printF(" ");
         }
 
-        printF("|\n");
+        printF("%|\n");
     }
     free(buffer);
 }
