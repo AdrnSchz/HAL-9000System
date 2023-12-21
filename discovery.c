@@ -138,16 +138,12 @@ int connectionHandler(int sock) {
 
 fd_set buildSelect(int poole_sock, int bowman_sock) {
     fd_set readfds;
-    char* buffer = NULL;
     
     FD_ZERO(&readfds);
     FD_SET(poole_sock, &readfds);
     FD_SET(bowman_sock, &readfds);
     for (int i = 0; i < num_clients; i++) {
         FD_SET(clients_fd[i], &readfds);
-        asprintf(&buffer, "Added client %d to select\n", clients_fd[i]);
-        printF(buffer);
-        free(buffer);
     }
 
     return readfds;

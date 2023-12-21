@@ -503,18 +503,11 @@ int bowmanHandler(int sock, int user_pos) {
 
 fd_set buildSelect() {
     fd_set readfds;
-    char* buffer = NULL;
     
     FD_ZERO(&readfds);
     FD_SET(bow_sock, &readfds);
-    asprintf(&buffer, "Num clients %d\n", num_users);
-    printF(buffer);
-    free(buffer);
     for (int i = 0; i < num_users; i++) {
         FD_SET(users_fd[i], &readfds);
-        asprintf(&buffer, "Added client %d to select\n", users_fd[i]);
-        printF(buffer);
-        free(buffer);
     }
 
     return readfds;
