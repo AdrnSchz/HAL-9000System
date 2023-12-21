@@ -338,6 +338,31 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
     frame = freeFrame(frame);
 }
 
+void checkDownload() {
+    char* buffer = NULL;
+    for (int i = 0; i < num_files; i++) {
+        asprintf(&buffer, "%s\n", files[i].file_name);
+        printF(buffer);
+        free(buffer);
+        
+        asprintf(&buffer, "\t%d%% |", (files[i].data_received * 100) / files[i].file_size);
+        printF(buffer);
+        
+        int num_hashes = (files[i].data_received * 20) / files[i].file_size;  // Each hash represents 5%
+        for (int j = 0; j < num_hashes; j++) {
+            printF("=");
+        }
+
+        // Add spaces for the remaining percentage
+        for (int j = num_hashes; j < 20; j++) {
+            printF(" ");
+        }
+
+        printF("|\n");
+    }
+    free(buffer);
+}
+
 int frameInput() {
     Frame frame;
     char* buffer = NULL;
@@ -636,6 +661,8 @@ int main(int argc, char *argv[]) {
                         // ==================================================
                         // CHECK DOWNLOAD
                         // ==================================================
+                        checkDownload();
+
                         free(buffer);
                         buffer = NULL;
                         //print(C_GREEN);
