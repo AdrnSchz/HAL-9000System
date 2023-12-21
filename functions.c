@@ -8,6 +8,12 @@
  ********************************************************************/
 #include "functions.h"
 
+void print(char *str, pthread_mutex_t terminal) {
+    pthread_mutex_lock(&terminal);
+    write(1, str, strlen(str));
+    pthread_mutex_unlock(&terminal);
+}
+
 void readNum(int source, int* num) {
     char *buffer;
     int i = 0;

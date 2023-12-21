@@ -27,6 +27,9 @@ pthread_t thread;
 int num_files = 0, downloading = 0;
 File* files;
 
+pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER;
+
+
 /********************************************************************
  *
  * @Purpose: Establishes a socket connection with the server using the information from the 'config' structure.
@@ -36,11 +39,11 @@ File* files;
  *
  ********************************************************************/
 int configConnection(struct sockaddr_in* server) {
-
+    char *buffer = NULL;
     if (checkPort(config.port) == -1) {
-        printF(C_RED);
-        printF("ERROR: Invalid port.\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sERROR: Invalid port.\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
 
         return -1;
     }
@@ -48,9 +51,9 @@ int configConnection(struct sockaddr_in* server) {
     discovery_sock = socket(AF_INET, SOCK_STREAM, 0);
 
     if (discovery_sock == -1) {
-        printF(C_RED);
-        printF("Error creating socket\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sERROR: Could not create socket.\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
 
         return -1;
     }
@@ -73,9 +76,9 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
     Frame frame;
 
     if (connect(discovery_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
-        printF(C_RED);
-        printF("Error trying to connect to load balancer\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sERROR: Could not connect to discovery server.\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
         
         return;
     }
@@ -99,9 +102,10 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
         poole_sock = socket(AF_INET, SOCK_STREAM, 0);
 
         if (connect(poole_sock, (struct sockaddr *) poole, sizeof(*poole)) < 0) {
-            printF(C_RED);
-            printF("Error trying to connect to HAL 9000 system\n");
-            printF(C_RESET);
+            asprintf(&buffer, "%sError trying to connect to HAL 9000 system\n%s", C_RED, C_RESET);
+            print(buffer, terminal);
+            free(buffer);
+
             return;
         }
 
@@ -113,36 +117,36 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
 
         if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
             asprintf(&buffer, "%s%s connected to HAL 9000 system, welcome music lover!\n%s", C_GREEN, config.user, C_RESET);
-            printF(buffer);
+            print(buffer, terminal);
             free(buffer);
-            buffer = NULL;
         }
         else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
-            printF(C_RED);
-            printF("Could not establish connection.\n");
-            printF(C_RESET);
+            asprintf(&buffer, "%sCould not establish connection.\n%s", C_RED, C_RESET);
+            print(buffer, terminal);
+            free(buffer);
         }
         else {
-            printF(C_RED);
-            printF("Received wrong frame\n");
-            printF(C_RESET);
+            asprintf(&buffer, "%sReceived wrong frame\n%s", C_RED, C_RESET);
+            print(buffer, terminal);
+            free(buffer);
             sendError(poole_sock);
         }
     }
     else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
-        printF(C_RED);
-        printF("Could not establish connection.\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sCould not establish connection.\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
     }
     else if (frame.type == '7') {
-        printF(C_RED);
-        printF("Sent wrong frame\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sSent wrong frame\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
     }
     else {
-        printF(C_RED);
-        printF("Received wrong frame\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sReceived wrong frame\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
+        
         sendError(discovery_sock);
     }
     frame = freeFrame(frame);
@@ -166,22 +170,24 @@ void logout() {
     asprintf(&buffer, T6, server_name);
     buffer = sendFrame(buffer, discovery_sock, strlen(buffer));
     frame2 = readFrame(discovery_sock);
-    if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0 && frame2.type == '6' && strcmp(frame2.header, "CON_OK") == 0) {                    
-        printF(C_GREEN);
-        printF("Thanks for using HAL 9000, see you soon, music lover!\n");
-        printF(C_RESET);
+    if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0 && frame2.type == '6' && strcmp(frame2.header, "CON_OK") == 0) {    
+        asprintf(&buffer, "%sThanks for using HAL 9000, see you soon, music lover!\n%s", C_GREEN, C_RESET);                
+        print(buffer, terminal);
+        free(buffer);
+
         close(poole_sock);
         close(discovery_sock);
     }
     else if ((frame.type == '6' && strcmp(frame.header, "CON_KO") == 0) || (frame2.type == '6' && strcmp(frame2.header, "CON_KO") == 0)) {
-        printF(C_RED);
-        printF("Could not disconnect from HAL 9000 system\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sCould not disconnect from HAL 9000 system\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
     }
     else {
-        printF(C_RED);
-        printF("Received wrong frame\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sReceived wrong frame\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
+        
         sendError(poole_sock);
     }
     frame = freeFrame(frame);
@@ -215,18 +221,20 @@ void* downloadSong() {
                     char* path;
                     char* md5 = NULL;
                     asprintf(&path, "%s/%s", config.files_path, files[i].file_name);
+                    
+                    pthread_mutex_lock(&terminal);
                     getMd5(path, &md5);
+                    pthread_mutex_unlock(&terminal);
 
                     if (md5 == NULL || strcmp(md5, files[i].md5) != 0) {
-                        printF(C_RED);
-                        printF("Error in the integrity of the file\n");
-                        printF(C_RESET);
+                        asprintf(&buffer, "%sError in the integrity of the file\n%s", C_RED, C_RESET);
+                        print(buffer, terminal);
+                        free(buffer);
+
                         asprintf(&buffer, T5_KO);
                         buffer = sendFrame(buffer, poole_sock, strlen(buffer));
-
                     }
                     else {
-                        printF("MP3 made\n");
                         asprintf(&buffer, T5_OK);
                         buffer = sendFrame(buffer, poole_sock, strlen(buffer));
                     }
@@ -253,19 +261,19 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
         download_sock = socket(AF_INET, SOCK_STREAM, 0);
 
         if (connect(download_sock, (struct sockaddr *) &download, sizeof(download)) < 0) {
-            printF(C_RED);
-            printF("Error establishing conection to download\n");
-            printF(C_RESET);
+            print(C_RED);
+            print("Error establishing conection to download\n");
+            print(C_RESET);
             return;
         }
 
         asprintf(&buffer, "ip: %s | port: %d\n", inet_ntoa(download.sin_addr), ntohs(download.sin_port));
-        printF(buffer);
+        print(buffer);
         free(buffer);
         buffer = NULL;
     }
     asprintf(&buffer, "download: %d | poole: %d\n", download_sock, poole_sock);
-    printF(buffer);
+    print(buffer);
     free(buffer);
     */
     if (song[strlen(song) - 4] == '.') {
@@ -282,9 +290,9 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
     if (frame.type == '4' && strcmp(frame.header, "NEW_FILE") == 0) {
         File file;
         if (getFileData(frame.data, &file) == 0) {
-            printF(C_GREEN);
-            printF("Download started!\n");
-            printF(C_RESET);
+            asprintf(&buffer, "%sDownload started!%s\n", C_GREEN, C_RESET);
+            print(buffer, terminal);
+            free(buffer);
             num_files++;
             files = realloc(files, sizeof(File) * (num_files));
             file.data_received = 0;
@@ -294,9 +302,8 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
             file.fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
     
             if (file.fd == -1) {
-                printF(C_RED);
-                printF("Error creating/opening the mp3 file\n");
-                printF(C_RESET);
+                asprintf(&buffer, "%sError creating/opening the mp3 file\n%s", C_RED, C_RESET);
+                print(buffer, terminal);
                 return;
             }
             free(path);
@@ -316,15 +323,16 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
             }
         }
         else {
-            printF(C_RED);
-            printF("Song or list does not exist\n");
-            printF(C_RESET);
+            asprintf(&buffer, "%sSong or list does not exist\n%s", C_RED, C_RESET);
+            print(buffer, terminal);
+            free(buffer);
         }
     }
     else {
-        printF(C_RED);
-        printF("Received wrong frame\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sReceived wrong frame\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
+
         sendError(poole_sock);
     }
     frame = freeFrame(frame);
@@ -340,7 +348,7 @@ int frameInput() {
         asprintf(&buffer, T6_OK);
         buffer = sendFrame(buffer, poole_sock, strlen(buffer));
         asprintf(&buffer, "\n%sServer %s got unexpectedly disconnected\n%s", C_RED, frame.data, C_RESET);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         buffer = NULL;
 
@@ -363,7 +371,7 @@ int frameInput() {
 void sig_handler(int sigsum) {
     switch(sigsum) {
         case SIGINT:
-            printF("\nAborting...\n");
+            print("\nAborting...\n", terminal);
 
             if (poole_sock != 0) {
                 logout();
@@ -408,9 +416,10 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, sig_handler);
 
     if (argc != 2) {
-        printF(C_RED);
-        printF("Usage: ./bowman <config_file>\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sUsage: ./bowman <config_file>\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
+
         return -1;
     }
     
@@ -418,15 +427,15 @@ int main(int argc, char *argv[]) {
     checkName(&config.user);
 
     asprintf(&buffer, "%s user initialized\n", config.user);
-    printF(buffer);
+    print(buffer, terminal);
     free(buffer);
     buffer = NULL;
 
     if (configConnection(&discovery) == -1) {
-        printF(C_RED);
-        printF("Error configuring connection with discovery\n");
-        printF(C_RESET);
-        
+        asprintf(&buffer, "%sError configuring connection with discovery\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
+    
         return -1;
     }
     
@@ -435,15 +444,15 @@ int main(int argc, char *argv[]) {
         //FD_SET(poole_sock, &readfds);
         FD_SET(0, &readfds);
 
-        printF(BOLD);
-        printF("\n$ ");
+        print(BOLD, terminal);
+        print("\n$ ", terminal);
 
         int ready = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
 
         if (ready <= 0) {
-            printF(C_RED);
-            printF("ERROR: Select failed.\n");
-            printF(C_RESET);
+            asprintf(&buffer, "%sERROR: Select failed.\n%s", C_RED, C_RESET);
+            print(buffer, terminal);
+            free(buffer);
 
             return -1;
         }
@@ -451,7 +460,7 @@ int main(int argc, char *argv[]) {
         else {
             if (FD_ISSET(0, &readfds)) {
                 readLine(0, &buffer);
-                printF(C_RESET);
+                print(C_RESET, terminal);
                 switch (checkCommand(buffer)) {
                     case 0:
                         // ==================================================
@@ -460,14 +469,14 @@ int main(int argc, char *argv[]) {
                         free(buffer);
                         buffer = NULL;
                         if (poole_sock != 0) {
-                            printF(C_RED);
-                            printF("ERROR: Already connected to HAL 9000 system\n");
-                            printF(C_RESET);
+                            asprintf(&buffer, "%sERROR: Already connected to HAL 9000 system\n%s", C_RED, C_RESET);
+                            print(buffer, terminal);
+                            free(buffer);
+
                             break;
                         }
 
                         connection(&poole, discovery);
-
                     break;
                     case 1:
                         // ==================================================
@@ -488,9 +497,10 @@ int main(int argc, char *argv[]) {
                         free(buffer);
                         buffer = NULL;
                         if (poole_sock == 0) {
-                            printF(C_RED);
-                            printF("ERROR: Not connected to HAL 9000 system\n");
-                            printF(C_RESET);
+                            asprintf(&buffer, "%sERROR: Not connected to HAL 9000 system\n%s", C_RED, C_RESET);
+                            print(buffer, terminal);
+                            free(buffer);
+
                             break;
                         }
                         
@@ -504,7 +514,7 @@ int main(int argc, char *argv[]) {
 
                             if (alreadyPrinted == 0) {
                                 asprintf(&buffer, "%sThere are %s songs available for download:\n%s", C_GREEN, num_songs_str, C_RESET);
-                                printF(buffer);
+                                print(buffer, terminal);
                                 free(buffer);
                                 buffer = NULL;
                                 alreadyPrinted = 1;
@@ -517,7 +527,7 @@ int main(int argc, char *argv[]) {
                                 if (song != NULL) {
                                     totalSongs += 1;
                                     asprintf(&buffer, "%d. %s\n", totalSongs, song);
-                                    printF(buffer);
+                                    print(buffer, terminal);
                                     free(buffer);
                                     buffer = NULL;
 
@@ -538,9 +548,10 @@ int main(int argc, char *argv[]) {
                         free(buffer);
                         buffer = NULL;
                         if (poole_sock == 0) {
-                            printF(C_RED);
-                            printF("ERROR: Not connected to HAL 9000 system\n");
-                            printF(C_RESET);
+                            asprintf(&buffer, "%sERROR: Not connected to HAL 9000 system\n%s", C_RED, C_RESET);
+                            print(buffer, terminal);
+                            free(buffer);
+
                             break;
                         }
                         
@@ -555,7 +566,7 @@ int main(int argc, char *argv[]) {
                         total_bytes += strlen(num_playlists_str) + 1;
 
                         asprintf(&buffer, "%sThere are %s playlists available for download:\n%s", C_GREEN, num_playlists_str, C_RESET);
-                        printF(buffer);
+                        print(buffer, terminal);
                         free(buffer);
                         buffer = NULL;
                         alreadyPrinted = 1;
@@ -574,7 +585,7 @@ int main(int argc, char *argv[]) {
                             total_bytes += strlen(playlist_name) + 1;
 
                             asprintf(&buffer, "%d. %s\n", i + 1, playlist_name);
-                            printF(buffer);
+                            print(buffer, terminal);
                             free(buffer);
                             buffer = NULL;
 
@@ -583,7 +594,7 @@ int main(int argc, char *argv[]) {
                                 song = strtok(NULL, "#&\0");
                                 total_bytes += strlen(song) + 1;
                                 asprintf(&buffer, "\t%d. %s\n", j + 1, song);
-                                printF(buffer);
+                                print(buffer, terminal);
                                 free(buffer);
                                 buffer = NULL;
 
@@ -607,9 +618,8 @@ int main(int argc, char *argv[]) {
                         // DOWNLOAD
                         // ==================================================
                         if (poole_sock == 0) {
-                            printF(C_RED);
-                            printF("ERROR: Not connected to HAL 9000 system\n");
-                            printF(C_RESET);
+                            asprintf(&buffer, "%sERROR: Not connected to HAL 9000 system\n%s", C_RED, C_RESET);
+                            print(buffer, terminal);
                             free(buffer);
                             buffer = NULL;
                             break;
@@ -628,9 +638,9 @@ int main(int argc, char *argv[]) {
                         // ==================================================
                         free(buffer);
                         buffer = NULL;
-                        printF(C_GREEN);
-                        printF("OK\n");
-                        printF(C_RESET);
+                        //print(C_GREEN);
+                        //print("OK\n");
+                        //print(C_RESET);
                         break;
                     case 6:
                         // ==================================================
@@ -638,9 +648,9 @@ int main(int argc, char *argv[]) {
                         // ==================================================
                         free(buffer);
                         buffer = NULL;
-                        printF(C_GREEN);
-                        printF("OK\n");
-                        printF(C_RESET);
+                        //print(C_GREEN);
+                        //print("OK\n");
+                        //print(C_RESET);
                         break;
                     case 7:
                         // ==================================================
@@ -648,10 +658,9 @@ int main(int argc, char *argv[]) {
                         // ==================================================
                         free(buffer);
                         buffer = NULL;
-                        printF(C_RED);
-                        //printF("KO\n");
-                        printF("Unknown command.\n");
-                        printF(C_RESET);
+                        asprintf(&buffer, "%sUnknown command.\n%s", C_RED, C_RESET);
+                        print(buffer, terminal);
+                        free(buffer);
                         break;
                     default:
                         // ==================================================
@@ -659,10 +668,10 @@ int main(int argc, char *argv[]) {
                         // ==================================================
                         free(buffer);
                         buffer = NULL;
-                        printF(C_RED);
-                        //printF("KO\n");
-                        printF("ERROR: Please input a valid command.\n");
-                        printF(C_RESET);
+                        asprintf(&buffer, "%sERROR: Please input a valid command.\n%s", C_RED, C_RESET);
+                        print(buffer, terminal);
+                        free(buffer);
+                        
                         break;
                 }
             } 

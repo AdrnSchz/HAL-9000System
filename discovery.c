@@ -136,6 +136,23 @@ int connectionHandler(int sock) {
     return 0;
 }
 
+fd_set buildSelect(int poole_sock, int bowman_sock) {
+    fd_set readfds;
+    char* buffer = NULL;
+    
+    FD_ZERO(&readfds);
+    FD_SET(poole_sock, &readfds);
+    FD_SET(bowman_sock, &readfds);
+    for (int i = 0; i < num_clients; i++) {
+        FD_SET(clients_fd[i], &readfds);
+        asprintf(&buffer, "Added client %d to select\n", clients_fd[i]);
+        printF(buffer);
+        free(buffer);
+    }
+
+    return readfds;
+
+}
 /********************************************************************
  *
  * @Purpose: Initializes and runs the Discovery server, setting up connections 
@@ -146,6 +163,7 @@ int connectionHandler(int sock) {
  *
  ********************************************************************/
 int main(int argc, char *argv[]) {
+    char* buffer = NULL;
     Disc_conf config;
     fd_set readfds;
     struct sockaddr_in server_p, server_b;
@@ -171,55 +189,66 @@ int main(int argc, char *argv[]) {
 
     server_b = configServer(config.ip_bow, config.port_bow);
     server_p = configServer(config.ip_poole, config.port_poole);  
-    
-    poole_sock = socket(AF_INET, SOCK_STREAM, 0);
-    bowman_sock = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (poole_sock == -1 || bowman_sock == -1) {
-        printF(C_RED);
-        printF("Error creating socket\n");
-        printF(C_RESET);
+    poole_sock = openConnection(server_p);
+    bowman_sock = openConnection(server_b);
 
-        return -1;
-    }
+    if (bowman_sock == -1 || poole_sock == -1) {
+        asprintf(&buffer, "%sError opening the socket\n%s", C_RED, C_RESET);
+        printF(buffer);
+        free(buffer);
 
-    if (openConnection(poole_sock, server_p, "poole") == -1 || openConnection(bowman_sock, server_b, "bowman") == -1) {
         return -1;
     }
 
     printF("Waiting for connections...\n");
     while (1) {
-        FD_ZERO(&readfds);
-        FD_SET(poole_sock, &readfds);
-        FD_SET(bowman_sock, &readfds);
-        for (int i = 0; i < num_clients; i++) {
-            FD_SET(clients_fd[i], &readfds);
-        }
+        readfds = buildSelect(poole_sock, bowman_sock);
 
-        int ready = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
+        int ready = select(CHECK_UP_TO, &readfds, NULL, NULL, NULL);
         
         if (ready == -1) {
             printF("Error in select\n");
             return -1;
         }
-        else if (ready == 0) {
-            printF("Timeout\n");
-        }
         else {
             if (FD_ISSET(poole_sock, &readfds)) {
-                if (acceptConnection(&num_clients, &clients_fd, "poole", poole_sock, 1) == -1) {
+                clients_fd[num_clients] = accept(poole_sock, NULL, NULL);
+                if (clients_fd[num_clients] == -1) {
+                    asprintf(&buffer, "%sError accepting %s socket connection\n%s", C_RED, "poole", C_RESET);
+                    printF(buffer);
+                    free(buffer);
+
                     return -1;
                 }
+                num_clients++;
+
+                clients_fd = realloc(clients_fd, sizeof(int) * (num_clients + 1));
+
+                asprintf(&buffer, "\n%sNew %s connection from x\n%s", C_GREEN, "poole", C_RESET);
+                printF(buffer);
+                free(buffer);
             }
             if (FD_ISSET(bowman_sock, &readfds)) {
-                if (acceptConnection(&num_clients, &clients_fd, "bowman", bowman_sock, 1) == -1) {
+                clients_fd[num_clients] = accept(bowman_sock, NULL, NULL);
+                if (clients_fd[num_clients] == -1) {
+                    asprintf(&buffer, "%sError accepting %s socket connection\n%s", C_RED, "bowman", C_RESET);
+                    printF(buffer);
+                    free(buffer);
+
                     return -1;
                 }
+
+                num_clients++;
+                clients_fd = realloc(clients_fd, sizeof(int) * (num_clients + 1));
+
+                asprintf(&buffer, "\n%sNew %s connection from x\n%s", C_GREEN, "bowman", C_RESET);
+                printF(buffer);
+                free(buffer);
             }
             for (int i = 0; i < num_clients; i++) {
                 if (FD_ISSET(clients_fd[i], &readfds)) {
                     if (connectionHandler(clients_fd[i]) == -1) {
-                        // Close socket
                         close(clients_fd[i]);
                         FD_CLR(clients_fd[i], &readfds);
                         for (int j = i; j < num_clients - 1; j++) {

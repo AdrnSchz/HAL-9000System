@@ -21,10 +21,11 @@
 int bow_sock = 0;
 Server_conf config;
 int* users_fd;
-int num_users, num_threads = 0;
+int num_users = 0, num_threads = 0;
 char** users;
 pthread_t* threads;
 int* ids;
+pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER;
 
 void* sendFile(void* arg) {
     Send* send = (Send*) arg;
@@ -34,7 +35,9 @@ void* sendFile(void* arg) {
      asprintf(&file, "%s/%s", config.path, send->name);
 
     // md5sum
+    pthread_mutex_lock(&terminal);
     getMd5(file, &md5);
+    pthread_mutex_unlock(&terminal);
     if (md5 == NULL) {
         asprintf(&buffer, C_RED "Error getting md5sum.\n" C_RESET);
         printF(buffer);
@@ -103,6 +106,8 @@ void* sendFile(void* arg) {
         free(buffer);
         buffer = NULL;
     }
+
+    //mirar de cambiar esto, cuando se descargan muchos a la vez este puede recibir el md5sum de otro
     Frame frame = readFrame(users_fd[send->fd_pos]);
 
     if (frame.type == '5' && strcmp(frame.header, "CHECK_OK") == 0) asprintf(&buffer, "%sSuccessfully sent %s to %s\n%s", C_GREEN, send->name, users[send->fd_pos], C_RESET);
@@ -496,6 +501,24 @@ int bowmanHandler(int sock, int user_pos) {
     return 0;
 }
 
+fd_set buildSelect() {
+    fd_set readfds;
+    char* buffer = NULL;
+    
+    FD_ZERO(&readfds);
+    FD_SET(bow_sock, &readfds);
+    asprintf(&buffer, "Num clients %d\n", num_users);
+    printF(buffer);
+    free(buffer);
+    for (int i = 0; i < num_users; i++) {
+        FD_SET(users_fd[i], &readfds);
+        asprintf(&buffer, "Added client %d to select\n", users_fd[i]);
+        printF(buffer);
+        free(buffer);
+    }
+
+    return readfds;
+}
 /********************************************************************
  *
  * @Purpose: Accepts incoming connections from Bowman users, managing users 
@@ -506,39 +529,41 @@ int bowmanHandler(int sock, int user_pos) {
  ********************************************************************/
 static int listenConnections() {
     fd_set readfds;
-    users_fd = (int*) malloc(sizeof(int));
-    num_users = 0;
-    users = (char**) malloc(sizeof(char*));
+    users_fd = malloc(sizeof(int));
+    users = malloc(sizeof(char*));
+    char* buffer = NULL;
 
     printF("\nWaiting for connections...\n");
     
     while (1) {
-        FD_ZERO(&readfds);
-        FD_SET(bow_sock, &readfds);
-        for (int i = 0; i < num_users; i++) {
-            FD_SET(users_fd[i], &readfds);
-        }
+        readfds = buildSelect();
 
-        int ready = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
+        int ready = select(CHECK_UP_TO, &readfds, NULL, NULL, NULL);
         
         if (ready == -1) {
             printF("Error in select\n");
             return -1;
         }
-        else if (ready == 0) {
-            printF("Timeout\n");
-        }
         else {
             if (FD_ISSET(bow_sock, &readfds)) {
-                if (acceptConnection(&num_users, &users_fd, "bowman", bow_sock, 0) == -1) {
+                users_fd[num_users] =  accept(bow_sock, NULL, NULL);
+                if (users_fd[num_users] == -1) {
+                    asprintf(&buffer, "%sError accepting %s socket connection\n%s", C_RED, "bowman", C_RESET);
+                    printF(buffer);
+                    free(buffer);
+                    buffer = NULL;
                     return -1;
                 }
-                users = (char**) realloc(users, sizeof(char*) * num_users);
+                num_users++; 
+                asprintf(&buffer, "Num clients before alloc %d\n", num_users);
+                printF(buffer);
+                free(buffer);
+                users = realloc(users, sizeof(char*) * num_users + 1);
+                users_fd = realloc(users_fd, sizeof(int) * (num_users + 1));
             }
             for (int i = 0; i < num_users; i++) {
                 if (FD_ISSET(users_fd[i], &readfds)) {
                     if (bowmanHandler(users_fd[i], i) == -1) {
-                        //cerrar sock
                         close(users_fd[i]);
                         FD_CLR(users_fd[i], &readfds);
                         for (int j = i; j < num_users - 1; j++) {
@@ -718,9 +743,14 @@ int main(int argc, char *argv[]) {
     if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
         close(disc_sock);
         server = configServer(config.user_ip, config.user_port);
-        bow_sock = socket(AF_INET, SOCK_STREAM, 0);
         
-        if (openConnection(bow_sock, server, "bowman") == -1) {
+        bow_sock = openConnection(server);
+
+        if (bow_sock == -1) {
+            asprintf(&buffer, "%sError opening the socket for %s\n%s", C_RED, "bowman", C_RESET);
+            printF(buffer);
+            free(buffer);
+
             return -1;
         }
 

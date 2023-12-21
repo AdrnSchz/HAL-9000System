@@ -21,49 +21,22 @@ struct sockaddr_in configServer(char* ip, int port) {
     return server;
 }
 
-int openConnection(int sock, struct sockaddr_in server, char* server_type) {
-    char* buffer;
+int openConnection(struct sockaddr_in server) {
+    int sock;
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (sock < 0) {
+        return -1;
+    }
 
     if (bind(sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
-        asprintf(&buffer, "%sError binding the socket for %s\n%s", C_RED, server_type, C_RESET);
-        printF(buffer);
-        free(buffer);
-        buffer = NULL;
-
         return -1;
     }
 
     listen(sock, 5);
 
-    return 0;
-}
-
-int acceptConnection(int* num_clients, int** clients_fd, char* server_type, int sock, int isDiscovery) {
-    char* buffer;
-    struct sockaddr_in client_addr; 
-    socklen_t client_len = sizeof(client_addr);
-
-    *clients_fd[*num_clients] = accept(sock, (struct sockaddr *) &client_addr, &client_len);
-
-    if (*clients_fd[*num_clients] < 0) {
-        asprintf(&buffer, "%sError accepting %s socket connection\n%s", C_RED, server_type, C_RESET);
-        printF(buffer);
-        free(buffer);
-        buffer = NULL;
-        return -1;
-    }
-
-    if (isDiscovery == 1) {
-        asprintf(&buffer, "\n%sNew %s connection from %s:%hu\n%s", C_GREEN, server_type, inet_ntoa (client_addr.sin_addr), ntohs (client_addr.sin_port), C_RESET);
-        printF(buffer);
-        free(buffer);
-        buffer = NULL;
-    }
-
-    *num_clients = *num_clients + 1;
-    *clients_fd = (int*) realloc(*clients_fd, sizeof(int) * (*num_clients + 1));
-
-    return 0;
+    return sock;
 }
 
 int checkPort(int port) {
@@ -93,9 +66,9 @@ Frame readFrame(int sock) {
     int i, j;
 
     read(sock, buffer, 256);
-    //printF("Received frame: ");
-    //printF(buffer);
-    //printF("\n");
+    printF("Received frame: ");
+    printF(buffer);
+    printF("\n");
     frame.type = buffer[0];
     frame.length[0] = buffer[1];
     frame.length[1] = buffer[2];
@@ -123,9 +96,9 @@ char* sendFrame(char* buffer, int sock, int len) {
         buffer[i] = '\0';
     }
     write(sock, buffer, 256);
-    //printF("Sending frame: ");
-    //printF(buffer);
-    //printF("\n");
+    printF("Sending frame: ");
+    printF(buffer);
+    printF("\n");
     free(buffer);
     buffer = NULL;
 

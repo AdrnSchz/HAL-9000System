@@ -12,6 +12,8 @@
 
 #include "functions.h"
 
+#define CHECK_UP_TO 5 + 3
+
 #define ERROR_FRAME "707UNKNOWN\n"
 #define T1_POOLE "109NEW_POOLE%s&%s&%d"
 #define T1_BOWMAN "110NEW_BOWMAN%s"
@@ -92,21 +94,8 @@ struct sockaddr_in configServer(char* ip, int port);
  * @Return: 0 if successful, -1 on error.
  *
  ********************************************************************/
-int openConnection(int sock, struct sockaddr_in server, char* server_type);
+int openConnection(struct sockaddr_in server);
 
-/********************************************************************
- *
- * @Purpose: Accepts new incoming connections on a server socket and dynamically 
- *           reallocates client file descriptors.
- * @Parameters: num_clients - Pointer to the number of clients.
- *              clients_fd - Array of client file descriptors.
- *              server_type - A string indicating the server type.
- *              sock - The server socket file descriptor.
- * @Return: 0 if successful, -1 on error.
- *
- ********************************************************************/
-
-int acceptConnection(int* num_clients, int** clients_fd, char* server_type, int sock, int isDiscovery);
 /********************************************************************
  *
  * @Purpose: Checks if a given port number is within the valid range.
