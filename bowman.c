@@ -338,7 +338,7 @@ void downloadCommand(char* song) { /*, struct sockaddr_in download*/
     frame = freeFrame(frame);
 }
 
-void checkDownload() {
+void checkDownloads() {
     char* buffer = NULL;
     for (int i = 0; i < num_files; i++) {
         asprintf(&buffer, "%s\n", files[i].file_name);
@@ -362,6 +362,31 @@ void checkDownload() {
     }
     free(buffer);
 }
+
+void clearDownloads() {
+    int j = 0;
+
+    for (int i = 0; i < num_files; i++) {
+        if (files[i].fd != 0) {
+            // Only delete fully downloaded files
+            if (files[i].data_received >= files[i].file_size) {
+                close(files[i].fd);
+                files[i].fd = 0;
+                memset(&files[i], 0, sizeof(File));
+            } else {
+                files[j] = files[i];
+                j++;
+            }
+        }
+    }
+
+    files = realloc(files, sizeof(File) * j);
+    num_files = j;
+    downloading = num_files;
+    
+    checkDownloads();
+}
+
 
 int frameInput() {
     Frame frame;
@@ -661,8 +686,7 @@ int main(int argc, char *argv[]) {
                         // ==================================================
                         // CHECK DOWNLOAD
                         // ==================================================
-                        checkDownload();
-
+                        checkDownloads();
                         free(buffer);
                         buffer = NULL;
                         //print(C_GREEN);
@@ -673,6 +697,7 @@ int main(int argc, char *argv[]) {
                         // ==================================================
                         // CLEAR DOWNLOAD
                         // ==================================================
+                        clearDownloads();
                         free(buffer);
                         buffer = NULL;
                         //print(C_GREEN);
