@@ -277,7 +277,6 @@ int bowmanHandler(int sock, int user_pos) {
     int remaining_space = 0;
 
     frame = readFrame(sock);
-
     if (frame.type == '1' && strcmp(frame.header, "NEW_BOWMAN") == 0) {
         int found = 0;
         asprintf(&buffer, T1_OK);
