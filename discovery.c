@@ -217,11 +217,11 @@ int main(int argc, char *argv[]) {
 
                     return -1;
                 }
-                num_clients++;
 
+                num_clients++;
                 clients_fd = realloc(clients_fd, sizeof(int) * (num_clients + 1));
 
-                asprintf(&buffer, "\n%sNew %s connection from x\n%s", C_GREEN, "poole", C_RESET);
+                asprintf(&buffer, "\n%sNew %s connection\n%s", C_GREEN, "poole", C_RESET);
                 printF(buffer);
                 free(buffer);
             }
@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
                 num_clients++;
                 clients_fd = realloc(clients_fd, sizeof(int) * (num_clients + 1));
 
-                asprintf(&buffer, "\n%sNew %s connection from x\n%s", C_GREEN, "bowman", C_RESET);
+                asprintf(&buffer, "\n%sNew %s connection\n%s", C_GREEN, "bowman", C_RESET);
                 printF(buffer);
                 free(buffer);
             }

@@ -21,12 +21,12 @@
 #include "connections.h"
 
 User_conf config;
-int discovery_sock, poole_sock = 0, download_sock = 0;
+int discovery_sock, poole_sock = 0;
 char* server_name = NULL;
 pthread_t thread;
 int num_files = 0, downloading = 0;
 File* files;
-
+int queue_id = 0;
 pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -63,6 +63,123 @@ int configConnection(struct sockaddr_in* server) {
     return 0;
 }
 
+void* downloadSong() {
+    char* buffer = NULL;
+    Msg msg;  
+
+    while (downloading != 0) {
+        msgrcv(queue_id, (struct msgbuf *)&msg, sizeof(Msg) - sizeof(long), 1, 0);
+        char* aux = getString(0, '&', msg.data);
+
+        int id = atoi(aux);
+        int space = 256 - 3 - 9 - (strlen(aux) + 1);
+        
+        for (int i = 0; i < num_files; i++) {
+            if (id == files[i].id) {
+                if (files[i].data_received + space > files[i].file_size) {
+                    space = files[i].file_size - files[i].data_received;
+                }
+                files[i].data_received += space;
+                
+                write(files[i].fd, msg.data + strlen(aux) + 1, space);
+
+                if (files[i].data_received >= files[i].file_size) {
+                    close(files[i].fd);
+                    files[i].fd = 0;
+                    downloading--;
+                    char* path;
+                    char* md5 = NULL;
+                    asprintf(&path, "%s/%s", config.files_path, files[i].file_name);
+                    
+                    pthread_mutex_lock(&terminal);
+                    getMd5(path, &md5);
+                    pthread_mutex_unlock(&terminal);
+
+                    if (md5 == NULL || strcmp(md5, files[i].md5) != 0) {
+                        asprintf(&buffer, "%sError in the integrity of the file\n%s", C_RED, C_RESET);
+                        print(buffer, terminal);
+                        free(buffer);
+
+                        asprintf(&buffer, T5_KO);
+                        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
+                    }
+                    else {
+                        asprintf(&buffer, T5_OK);
+                        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
+                    }
+                    free(md5);
+                    path = NULL;
+                }
+                break;
+            }
+        }
+        free(aux);
+        aux = NULL;
+    }
+    return NULL;
+}
+
+void newFile(Frame frame) {
+    File file;
+    char* buffer = NULL;
+
+    if (getFileData(frame.data, &file) == 0) {
+        asprintf(&buffer, "%sDownload started!%s\n", C_GREEN, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
+        num_files++;
+        files = realloc(files, sizeof(File) * (num_files));
+        file.data_received = 0;
+
+        char* path;
+        asprintf(&path, "%s/%s", config.files_path, file.file_name);
+        file.fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
+
+        if (file.fd == -1) {
+            asprintf(&buffer, "%sError creating/opening the mp3 file\n%s", C_RED, C_RESET);
+            print(buffer, terminal);
+            return;
+        }
+        free(path);
+
+        files[num_files - 1] = file;
+        downloading++;
+        
+        if (downloading - 1 == 0) {
+            pthread_create(&thread, NULL, downloadSong, NULL);
+        }
+    }
+    else {
+        asprintf(&buffer, "%sSong or list does not exist\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
+    }
+}
+
+void newData(Frame frame) {
+    Msg msg = {0};
+    msg.mtype = 1;
+    memset(msg.data, 0, sizeof(msg.data));
+    memcpy(msg.data, frame.data, 256 - 12);
+    msgsnd(queue_id, (struct msgbuf *)&msg, sizeof(Msg) - sizeof(long), 0);
+}
+
+Frame getFrameLoop(int sock) {
+    Frame frame = readFrame(sock);
+
+    while (frame.type == '4') {
+        if (strcmp(frame.header, "NEW_FILE") == 0) {
+            newFile(frame);
+        }
+        else if (strcmp(frame.header, "FILE_DATA") == 0) {
+            newData(frame);
+        }
+        frame = freeFrame(frame);
+        frame = readFrame(sock);
+    }
+
+    return frame;
+}
 /********************************************************************
  *
  * @Purpose: Connect and ask discovery for a server and connect to the given server
@@ -87,8 +204,9 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
     asprintf(&buffer, T1_BOWMAN, config.user);
     buffer = sendFrame(buffer, discovery_sock, strlen(buffer));
 
-    frame = readFrame(discovery_sock);
-
+    //frame = readFrame(discovery_sock);
+    frame = getFrameLoop(discovery_sock);
+    
     if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
         server_name = getString(0, '&', frame.data);
         buffer = getString(1 + strlen(server_name), '&', frame.data);
@@ -113,7 +231,8 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
         buffer = sendFrame(buffer, poole_sock, strlen(buffer));
         
         frame = freeFrame(frame);
-        frame = readFrame(poole_sock);
+        // frame = readFrame(poole_sock);
+        frame = getFrameLoop(poole_sock);
 
         if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
             asprintf(&buffer, "%s%s connected to HAL 9000 system, welcome music lover!\n%s", C_GREEN, config.user, C_RESET);
@@ -163,6 +282,8 @@ void logout() {
     char* buffer = NULL;
     Frame frame, frame2;
 
+    //joinear threads y acabar download o algo
+
     asprintf(&buffer, T6, config.user);
     buffer = sendFrame(buffer, poole_sock, strlen(buffer));
     frame = readFrame(poole_sock);
@@ -192,154 +313,28 @@ void logout() {
     }
     frame = freeFrame(frame);
     frame2 = freeFrame(frame2);
+
+    if (msgctl(queue_id, IPC_RMID, NULL) == -1) {
+        print("Error deleting the message queue\n", terminal);
+    }
 }
 
-void* downloadSong() {
-    Frame frame;
+void downloadCommand(char* song) {
     char* buffer = NULL;
 
-    while (downloading != 0) {
-        frame = readFrame(poole_sock);
-        char* aux = getString(0, '&', frame.data);
-
-        int id = atoi(aux);
-        int space = 256 - 3 - strlen(frame.header) - (strlen(aux) + 1);
-        
-        for (int i = 0; i < num_files; i++) {
-            if (id == files[i].id) {
-                if (files[i].data_received + space > files[i].file_size) {
-                    space = files[i].file_size - files[i].data_received;
-                }
-                files[i].data_received += space;
-                
-                write(files[i].fd, frame.data + strlen(aux) + 1, space);
-
-                if (files[i].data_received >= files[i].file_size) {
-                    close(files[i].fd);
-                    files[i].fd = 0;
-                    downloading--;
-                    char* path;
-                    char* md5 = NULL;
-                    asprintf(&path, "%s/%s", config.files_path, files[i].file_name);
-                    
-                    pthread_mutex_lock(&terminal);
-                    getMd5(path, &md5);
-                    pthread_mutex_unlock(&terminal);
-
-                    if (md5 == NULL || strcmp(md5, files[i].md5) != 0) {
-                        asprintf(&buffer, "%sError in the integrity of the file\n%s", C_RED, C_RESET);
-                        print(buffer, terminal);
-                        free(buffer);
-
-                        asprintf(&buffer, T5_KO);
-                        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
-                    }
-                    else {
-                        asprintf(&buffer, T5_OK);
-                        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
-                    }
-                    free(md5);
-                    path = NULL;
-                }
-                break;
-            }
-        }
-        frame = freeFrame(frame);
-        free(aux);
-        aux = NULL;
-    }
-    return NULL;
-}
-
-void downloadCommand(char* song) { /*, struct sockaddr_in download*/
-    char* buffer = NULL;
-    Frame frame;
-    int isSong;
-
-    /*
-    if (download_sock == 0) {
-        download_sock = socket(AF_INET, SOCK_STREAM, 0);
-
-        if (connect(download_sock, (struct sockaddr *) &download, sizeof(download)) < 0) {
-            print(C_RED);
-            print("Error establishing conection to download\n");
-            print(C_RESET);
-            return;
-        }
-
-        asprintf(&buffer, "ip: %s | port: %d\n", inet_ntoa(download.sin_addr), ntohs(download.sin_port));
-        print(buffer);
-        free(buffer);
-        buffer = NULL;
-    }
-    asprintf(&buffer, "download: %d | poole: %d\n", download_sock, poole_sock);
-    print(buffer);
-    free(buffer);
-    */
     if (song[strlen(song) - 4] == '.') {
         asprintf(&buffer, T3_DOWNLOAD_SONG, song);
-        isSong = 1;
     } 
     else {
         asprintf(&buffer, T3_DOWNLOAD_LIST, song);
-        isSong = 0;
     }
     buffer = sendFrame(buffer, poole_sock, strlen(buffer));
-    frame = readFrame(poole_sock);
-
-    if (frame.type == '4' && strcmp(frame.header, "NEW_FILE") == 0) {
-        File file;
-        if (getFileData(frame.data, &file) == 0) {
-            asprintf(&buffer, "%sDownload started!%s\n", C_GREEN, C_RESET);
-            print(buffer, terminal);
-            free(buffer);
-            num_files++;
-            files = realloc(files, sizeof(File) * (num_files));
-            file.data_received = 0;
-
-            char* path;
-            asprintf(&path, "%s/%s", config.files_path, file.file_name);
-            file.fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
-    
-            if (file.fd == -1) {
-                asprintf(&buffer, "%sError creating/opening the mp3 file\n%s", C_RED, C_RESET);
-                print(buffer, terminal);
-                return;
-            }
-            free(path);
-
-            if (isSong == 1) {
-                file.list = NULL;
-                files[num_files - 1] = file;
-            }
-            else {
-                file.list = song;
-                files[num_files - 1] = file;
-            }
-            downloading++;
-            
-            if (downloading - 1 == 0) { // cambiar esto
-                pthread_create(&thread, NULL, downloadSong, NULL);
-            }
-        }
-        else {
-            asprintf(&buffer, "%sSong or list does not exist\n%s", C_RED, C_RESET);
-            print(buffer, terminal);
-            free(buffer);
-        }
-    }
-    else {
-        asprintf(&buffer, "%sReceived wrong frame\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
-        free(buffer);
-
-        sendError(poole_sock);
-    }
-    frame = freeFrame(frame);
 }
+
 
 void checkDownloads() {
     char* buffer = NULL;
+    printF("Start downloading:\n");
     for (int i = 0; i < num_files; i++) {
         asprintf(&buffer, "%s\n", files[i].file_name);
         printF(buffer);
@@ -388,13 +383,22 @@ void clearDownloads() {
 }
 
 
-int frameInput() {
+int checkFrame() {
     Frame frame;
     char* buffer = NULL;
 
     frame = readFrame(poole_sock);
 
-    if (frame.type == '6' && strcmp(frame.header, "SHUTDOWN") == 0) {
+    if (frame.type == '4') {
+        if (strcmp(frame.header, "NEW_FILE") == 0) {
+            newFile(frame);
+        }
+        else if (strcmp(frame.header, "FILE_DATA") == 0) {
+            newData(frame);
+        }
+        frame = freeFrame(frame);
+    }          
+    else if (frame.type == '6' && strcmp(frame.header, "SHUTDOWN") == 0) {
         asprintf(&buffer, T6_OK);
         buffer = sendFrame(buffer, poole_sock, strlen(buffer));
         asprintf(&buffer, "\n%sServer %s got unexpectedly disconnected\n%s", C_RED, frame.data, C_RESET);
@@ -407,6 +411,17 @@ int frameInput() {
         frame = freeFrame(frame);
         
         return 6;
+    }
+    else {
+        asprintf(&buffer, "%sReceived wrong frame\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
+        asprintf(&buffer, "Type: %c, header: %s, data: %s", frame.type, frame.header, frame.data);
+        print(buffer, terminal);
+        free(buffer);
+
+        sendError(poole_sock);
+        frame = freeFrame(frame);
     }
 
     return 0;
@@ -448,15 +463,9 @@ void sig_handler(int sigsum) {
  *
  ********************************************************************/
 int main(int argc, char *argv[]) {
-    char* buffer = NULL;
-    int alreadyPrinted = 0;
-    int totalSongs = 0;
-    int totalPlaylists = 0;
-    char* num_songs_str = NULL;
-    char* num_playlists_str = NULL;
-    char* song = NULL;
-    int num_songs = 0;
-    char* playlist_name = NULL;
+    char *buffer = NULL, *num_songs_str = NULL, *num_playlists_str = NULL, *song = NULL, *playlist_name = NULL;
+    int alreadyPrinted = 0, totalSongs = 0, totalPlaylists = 0, num_songs = 0;
+    key_t key;
     size_t total_bytes = 0;
     thread = 0;
 
@@ -472,7 +481,7 @@ int main(int argc, char *argv[]) {
 
         return -1;
     }
-    
+
     config = readConfigBow(argv[1]);
     checkName(&config.user);
 
@@ -488,14 +497,13 @@ int main(int argc, char *argv[]) {
     
         return -1;
     }
-    
+    print(BOLD, terminal);
+    print("\n$ ", terminal);
+
     while(1) {
         FD_ZERO(&readfds);
-        //FD_SET(poole_sock, &readfds);
+        FD_SET(poole_sock, &readfds);
         FD_SET(0, &readfds);
-
-        print(BOLD, terminal);
-        print("\n$ ", terminal);
 
         int ready = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
 
@@ -559,7 +567,8 @@ int main(int argc, char *argv[]) {
                         alreadyPrinted = 0;
 
                         while (1) {
-                            frame = readFrame(poole_sock);
+                            // frame = readFrame(poole_sock);
+                            frame = getFrameLoop(poole_sock);
                             num_songs_str = strtok(frame.data, "#");
 
                             if (alreadyPrinted == 0) {
@@ -609,7 +618,9 @@ int main(int argc, char *argv[]) {
                         buffer = sendFrame(buffer, poole_sock, strlen(buffer));
                         alreadyPrinted = 0;
 
-                        frame = readFrame(poole_sock);
+                        //frame = readFrame(poole_sock);
+                        frame = getFrameLoop(poole_sock);
+
                         total_bytes = 0;
                         size_t data_len = strlen(frame.data);
                         num_playlists_str = strtok(frame.data, "#");
@@ -649,7 +660,8 @@ int main(int argc, char *argv[]) {
                                 buffer = NULL;
 
                                 if (totalSongs < num_songs && (total_bytes == data_len + 1)) {
-                                    frame = readFrame(poole_sock);
+                                    //frame = readFrame(poole_sock);
+                                    frame = getFrameLoop(poole_sock);
                                     num_playlists_str = strtok(frame.data, "#");
                                     total_bytes += strlen(num_playlists_str) + 1;
                                     goto nextFrame;
@@ -676,7 +688,16 @@ int main(int argc, char *argv[]) {
                         }
                         removeWhiteSpaces(&buffer);
                         char* song = getSongName(buffer);
-                        downloadCommand(song); /*, poole*/
+
+                        if (queue_id == 0) {
+                            if (configQueue(&key, &queue_id) == -1) {
+                                asprintf(&buffer, "%sError creating queue\n%s", C_RED, C_RESET);
+                                print(buffer, terminal);
+                                free(buffer);
+                            }
+                        }
+
+                        downloadCommand(song);
                         free(buffer);
                         buffer = NULL;
                         free(song);
@@ -689,9 +710,6 @@ int main(int argc, char *argv[]) {
                         checkDownloads();
                         free(buffer);
                         buffer = NULL;
-                        //print(C_GREEN);
-                        //print("OK\n");
-                        //print(C_RESET);
                         break;
                     case 6:
                         // ==================================================
@@ -700,9 +718,6 @@ int main(int argc, char *argv[]) {
                         clearDownloads();
                         free(buffer);
                         buffer = NULL;
-                        //print(C_GREEN);
-                        //print("OK\n");
-                        //print(C_RESET);
                         break;
                     case 7:
                         // ==================================================
@@ -726,12 +741,15 @@ int main(int argc, char *argv[]) {
                         
                         break;
                 }
+                print(BOLD, terminal);
+                print("\n$ ", terminal);
             } 
-            /*else if (FD_ISSET(poole_sock, &readfds)) {
-                if (frameInput() == 6) {
+            else if (FD_ISSET(poole_sock, &readfds)) {
+                int res = checkFrame();
+                if (res == 6) {
                     connection(&poole, discovery);
                 }
-            }*/
+            }
         }
         if (downloading == 0 && thread != 0) {
             pthread_join(thread, NULL);

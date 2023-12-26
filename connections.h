@@ -74,7 +74,13 @@ typedef struct {
 typedef struct {
     char* name;
     int fd_pos;
+    int thread_pos;
 } Send;
+
+typedef struct {
+    long mtype;
+    char data[244];
+} Msg;
 /********************************************************************
  *
  * @Purpose: Configures the server address structure for connections.
@@ -152,4 +158,5 @@ Frame freeFrame(Frame frame);
  ********************************************************************/
 int getFileData(char* data, File* file);
 
+int configQueue(key_t* key, int* id);
 #endif

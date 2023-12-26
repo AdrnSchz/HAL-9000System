@@ -40,7 +40,6 @@ int openConnection(struct sockaddr_in server) {
 }
 
 int checkPort(int port) {
-
     if (port < 0 || port > 65535) {
         return -1;
     }
@@ -161,5 +160,18 @@ int getFileData(char* data, File* file) {
         return -1;
     }
 
+    return 0;
+}
+
+int configQueue(key_t *key, int *id) {
+    *key = ftok("bowman.c", 12);
+    if (*key == (key_t) - 1){
+        return -1;
+    }
+
+    *id = msgget(*key, 0600 | IPC_CREAT);
+    if(*id == - 1){
+        return -1;
+    }
     return 0;
 }

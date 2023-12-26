@@ -29,6 +29,7 @@
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/select.h>
+#include <sys/msg.h>
 
 #define printF(x) write(1, x, strlen(x))
 
@@ -36,7 +37,6 @@
 #define C_RED "\033[31m"
 #define C_GREEN "\033[32m"
 #define C_BOLDGREEN "\033[1m\033[32m"
-#define C_BOLDRED   "\033[1m\033[31m"
 #define BOLD    "\033[1m"
 
 void print(char *str, pthread_mutex_t terminal);

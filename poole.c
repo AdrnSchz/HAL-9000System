@@ -25,14 +25,15 @@ int num_users = 0, num_threads = 0;
 char** users;
 pthread_t* threads;
 int* ids;
-pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER, globals = PTHREAD_MUTEX_INITIALIZER;
 
 void* sendFile(void* arg) {
     Send* send = (Send*) arg;
-    int index = num_threads - 1, fd_file, size = 0, sent = 0;
+    int fd_file, size = 0, sent = 0;
     char* buffer = NULL, *file = NULL, *md5 = NULL, *data;
+    int index = send->thread_pos;
 
-     asprintf(&file, "%s/%s", config.path, send->name);
+    asprintf(&file, "%s/%s", config.path, send->name);
 
     // md5sum
     pthread_mutex_lock(&terminal);
@@ -50,8 +51,8 @@ void* sendFile(void* arg) {
     asprintf(&file, "%s/%s", config.path, send->name);
 
     // get random(id)
+    pthread_mutex_lock(&globals);
     srand(getpid());
-    ids = realloc(ids, sizeof(int) * (num_threads));
     do {
         ids[index] = rand() % (999 + 1);
         for (int i = 0; i < num_threads; i++) {
@@ -64,6 +65,7 @@ void* sendFile(void* arg) {
             }
         }
     } while (ids[index] == -1);
+    pthread_mutex_unlock(&globals);
 
     // get size and read file
     fd_file = open(file, O_RDONLY);
@@ -84,10 +86,10 @@ void* sendFile(void* arg) {
     close (fd_file);
 
     // send frame
-    asprintf(&buffer, T4_NEW_FILE, send->name, size, md5, ids[num_threads - 1]);
+    asprintf(&buffer, T4_NEW_FILE, send->name, size, md5, ids[index]);
     buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
 
-    asprintf(&buffer, "%d", ids[num_threads -1]);
+    asprintf(&buffer, "%d", ids[index]);
     int space = 256 - 3 - 9 - strlen(buffer) - 1;
     int occupied = 3 + 9 + strlen(buffer) + 1;
     free(buffer);
@@ -98,7 +100,7 @@ void* sendFile(void* arg) {
         if (size - sent < space) {
             space = size - sent;
         }
-        asprintf(&buffer, T4_DATA, ids[num_threads - 1]);
+        asprintf(&buffer, T4_DATA, ids[index]);
         buffer = realloc(buffer, 256);
         memcpy(buffer + strlen(buffer), data + sent, space);
         buffer = sendFrame(buffer, users_fd[send->fd_pos], space + occupied);
@@ -124,15 +126,17 @@ void* sendFile(void* arg) {
     return NULL;
 }
 
-void downloadSong(char* song, int user_pos) {
+void downloadSong(char* song, int user_pos, int isList) {
     char* buffer, *file = NULL;
     int num_songs = 0, found = 0;
     Send* send = malloc(sizeof(Send));
 
-    asprintf(&buffer, "\n%sNew request - %s wants to download %s.\n%s", C_GREEN, users[user_pos], song, C_RESET);
-    printF(buffer);
-    free(buffer);
-    buffer = NULL;
+    if (isList == 0) {
+        asprintf(&buffer, "\n%sNew request - %s wants to download %s.\n%s", C_GREEN, users[user_pos], song, C_RESET);
+        printF(buffer);
+        free(buffer);
+        buffer = NULL;
+    }
     
     asprintf(&file, "%s/songs.txt", config.path);
     int fd_file = open(file, O_RDONLY);
@@ -180,9 +184,15 @@ void downloadSong(char* song, int user_pos) {
 
     free(file);
     file = NULL;
+
+    pthread_mutex_lock(&globals);
+    ids = realloc(ids, sizeof(int) * (num_threads + 1));
+    ids[num_threads] = -1;
+    send->thread_pos = num_threads;
     num_threads++;
     threads = realloc(threads, sizeof(pthread_t) * (num_threads));
-    pthread_create(&threads[num_threads - 1], NULL, sendFile, send);
+    pthread_mutex_unlock(&globals);
+    pthread_create(&threads[send->thread_pos], NULL, sendFile, send);
 }
 
 void downloadList(char* list, int user_pos) {
@@ -208,7 +218,6 @@ void downloadList(char* list, int user_pos) {
         return;
     }
 
-    Playlist playlist;
     readNum(fd_file, &num_playlists);
     for (int i = 0; i < num_playlists; i++) {
         readNum(fd_file, &num_songs);
@@ -216,14 +225,11 @@ void downloadList(char* list, int user_pos) {
         
         if (strcmp(buffer, list) == 0) {
             found = 1;
-            playlist.name = buffer;
-            playlist.num_songs = num_songs;
-            buffer = NULL;
-
+            free(buffer);
             for (int j = 0; j < num_songs; j++) {
                 readLine(fd_file, &buffer);
-                playlist.songs = realloc(playlist.songs, sizeof(char*) * (j + 1));
-                playlist.songs[j] = buffer;
+                downloadSong(buffer, user_pos, 1);
+                free(buffer);
                 buffer = NULL;
             }
             break;
@@ -234,8 +240,6 @@ void downloadList(char* list, int user_pos) {
             free(buffer);
             buffer = NULL;
         }
-        free(buffer);
-        buffer = NULL;
     }
     close(fd_file);
 
@@ -248,23 +252,13 @@ void downloadList(char* list, int user_pos) {
         buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
         return;
     }
-    asprintf(&buffer, "Sending %s to %s. A total of %d songs will be sent", list, users[user_pos], playlist.num_songs);
+    asprintf(&buffer, "Sending %s to %s. A total of %d songs will be sent", list, users[user_pos], num_songs);
     printF(buffer);
     free(buffer);
     buffer = NULL;
 
     free(file);
     file = NULL;
-
-    for (int i = 0; i < playlist.num_songs; i++) {
-        Send* send = malloc(sizeof(Send));
-        send->name = malloc(strlen(playlist.songs[i]) + 1);
-        strcpy(send->name, playlist.songs[i]);
-        send->fd_pos = user_pos;
-        num_threads++;
-        threads = realloc(threads, sizeof(pthread_t) * (num_threads));
-        pthread_create(&threads[num_threads - 1], NULL, sendFile, send);
-    }
 }
 /********************************************************************
  *
@@ -285,15 +279,24 @@ int bowmanHandler(int sock, int user_pos) {
     frame = readFrame(sock);
 
     if (frame.type == '1' && strcmp(frame.header, "NEW_BOWMAN") == 0) {
-        
+        int found = 0;
         asprintf(&buffer, T1_OK);
         buffer = sendFrame(buffer, sock, strlen(buffer));
         
         users[user_pos] = getString(0, '\0', frame.data);
-        asprintf(&buffer, "%s\nNew user connected: %s.\n%s", C_GREEN, users[user_pos], C_RESET);
-        printF(buffer);
-        free(buffer);
-        buffer = NULL;
+
+        for (int i = 0; i < num_users; i++) {
+            if (strcmp(users[user_pos], users[i]) == 0) {
+                found++;
+            }
+        }
+
+        if (found == 1) {
+            asprintf(&buffer, "%s\nNew user connected: %s.\n%s", C_GREEN, users[user_pos], C_RESET);
+            printF(buffer);
+            free(buffer);
+            buffer = NULL;
+        }
     }
     else if (frame.type == '2') {
         if (strcmp(frame.header, "LIST_SONGS") == 0) {
@@ -465,13 +468,9 @@ int bowmanHandler(int sock, int user_pos) {
             printF("\n\n2\n");
             buffer = sendFrame(buffer, sock, strlen(buffer));
         }
-        else {
-            printF("Wrong frame\n");
-            sendError(sock);
-        }
     }
     else if (frame.type == '3' && strcmp(frame.header, "DOWNLOAD_SONG") == 0) {
-        downloadSong(frame.data, user_pos);
+        downloadSong(frame.data, user_pos, 0);
         frame = freeFrame(frame);
     }
     else if (frame.type == '3' && strcmp(frame.header, "DOWNLOAD_LIST") == 0) {
@@ -492,10 +491,12 @@ int bowmanHandler(int sock, int user_pos) {
         printF(C_RED);
         printF("Sent wrong frame\n");
         printF(C_RESET);
+        frame = freeFrame(frame);
     }
     else {
         printF("Wrong frame\n");
         sendError(sock);
+        frame = freeFrame(frame);
     }
 
     return 0;
@@ -548,9 +549,6 @@ static int listenConnections() {
                     return -1;
                 }
                 num_users++; 
-                asprintf(&buffer, "Num clients before alloc %d\n", num_users);
-                printF(buffer);
-                free(buffer);
                 users = realloc(users, sizeof(char*) * num_users + 1);
                 users_fd = realloc(users_fd, sizeof(int) * (num_users + 1));
             }
@@ -578,7 +576,7 @@ static int listenConnections() {
     return 0;
 }
 
-void logout() {
+void logout() { // closear download sock
     char* buffer = NULL;
     Frame frame;
     int disc_sock;
@@ -760,7 +758,6 @@ int main(int argc, char *argv[]) {
         printF(C_RED);
         printF("Error trying to connect to HAL 9000 system\n");
         printF(C_RESET);
-        sendError(disc_sock);
         close(disc_sock);
         return -1;
     } 
