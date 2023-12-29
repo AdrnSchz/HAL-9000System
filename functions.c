@@ -60,12 +60,21 @@ char* readUntil(int fd, char end) {
     int i = 0;
 
     buffer = (char*) malloc(sizeof(char));
+    buffer[i] = 'A';
+    int size = read(fd, &buffer[i], sizeof(char));
+    if (size == 0) {
+        free(buffer);
+        return NULL;
+    }
 
-    read(fd, &buffer[i], sizeof(char));
     while (buffer[i] != end) {
         i++;
         buffer = (char*) realloc(buffer, sizeof(char) * (i + 1));
-        read(fd, &buffer[i], sizeof(char));
+        size = read(fd, &buffer[i], sizeof(char));
+        if (size == 0) {
+            free(buffer);
+            return NULL;
+        }
     }
     buffer[i] = '\0';
 

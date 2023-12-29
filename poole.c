@@ -18,7 +18,7 @@
 #include "configs.h"
 #include "connections.h"
 
-int bow_sock = 0;
+int bow_sock = 0, poole2mono[2];
 Server_conf config;
 int* users_fd;
 int num_users = 0, num_threads = 0;
@@ -193,6 +193,8 @@ void downloadSong(char* song, int user_pos, int isList) {
     threads = realloc(threads, sizeof(pthread_t) * (num_threads));
     pthread_mutex_unlock(&globals);
     pthread_create(&threads[send->thread_pos], NULL, sendFile, send);
+
+    write(poole2mono[1], send->name, strlen(send->name) + 1);
 }
 
 void downloadList(char* list, int user_pos) {
@@ -639,12 +641,105 @@ void logout() { // closear download sock
             users[i] = NULL;
         }
         else {
+            
             asprintf(&buffer, "%sCouldn't close %s user connection\n%s", C_RED, users[i], C_RESET);
             printF(buffer);
             free(buffer);
             buffer = NULL;
         }
         frame = freeFrame(frame);
+    }
+
+    write(poole2mono[1], "\n", 1);
+    wait(NULL);
+    close(poole2mono[1]);
+}
+
+void monolith() {
+    char *buffer = NULL, *aux = NULL;
+    int i = 0, found = 0, num = 0;
+
+    asprintf(&buffer, "%s/stats.txt", config.path);
+    int file_fd = open(buffer, O_CREAT | O_RDWR, 0666);
+    free(config.path);
+    free(buffer);
+
+    if (file_fd == -1) {
+        asprintf(&buffer, "%sError opening stats.txt\n%s", C_RED, C_RESET);
+        printF(buffer);
+        free(buffer);
+        return;
+    }
+
+    if (lseek(file_fd, 0, SEEK_END) == 0) {
+        asprintf(&buffer, "0\n");
+        write(file_fd, buffer, strlen(buffer));
+    }
+    while (1) {
+        i = 0;
+        found = 0;
+        num = 0;
+        do {
+            buffer = realloc(buffer, i + 1);
+            read(poole2mono[0], &buffer[i], 1);
+            
+            if (buffer[i] == '\n') {
+                free(buffer);
+                close(file_fd);
+                close(poole2mono[0]);
+                exit(0);
+            }
+            i++;
+        } while (buffer[i - 1] != '\0');
+        i--;
+
+        lseek(file_fd, 0, SEEK_SET);
+        aux = readUntil(file_fd, '\n');
+        while (found == 0 && aux != NULL) {
+            for (int j = 0; j < i && i <= (int)strlen(aux); j++) {
+                if (buffer[j] == aux[j]) {
+                    found++;
+                }
+            }
+            
+            if (found == i - 1) {
+                found = 1;
+                break;
+            } else found = 0;
+            
+            free(aux);
+            aux = readUntil(file_fd, '\n');
+        }
+        
+        if (found == 1) {
+            int j = strlen(aux) - 1;
+            int multi = 1;
+            while (aux[j] >= '0' && aux[j] <= '9') {
+                if ( (strlen(aux) - 1 - j) == 0) multi = 1;
+                else multi *= 10;
+                num += (aux[j] - '0') * multi;
+                j--;
+            }
+            lseek(file_fd, - (strlen(aux) + 1), SEEK_CUR);
+            free(aux);
+            asprintf(&aux, "%s %d\n", buffer, num + 1);
+            write(file_fd, aux, strlen(aux));
+        } else {
+            free(aux);
+            lseek(file_fd, 0, SEEK_END);
+            asprintf(&aux, "%s 1\n", buffer);
+            write(file_fd, aux, strlen(aux));
+        }
+        free(aux);
+        free(buffer);
+        lseek(file_fd, 0, SEEK_SET);
+        aux = readUntil(file_fd, '\n');
+        num = atoi(aux);
+        free(aux);
+        lseek(file_fd, 0, SEEK_SET);
+        asprintf(&aux, "%d\n", num + 1);
+        write(file_fd, aux, strlen(aux));
+        free(aux);
     }
 }
 
@@ -679,12 +774,18 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in server;
     int disc_sock;
     Frame frame;
-    signal(SIGINT, sig_handler);
     
     if (argc != 2) {
         printF(C_RED);
         printF("Usage: ./poole <config_file>\n");
         printF(C_RESET);
+        return -1;
+    }
+
+    if (pipe(poole2mono) == -1) {
+        asprintf(&buffer, "%sError creating the pipe\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
         return -1;
     }
 
@@ -699,6 +800,27 @@ int main(int argc, char *argv[]) {
 
         return -1;
     }
+
+        switch (fork()){
+        case -1:
+            asprintf(&buffer, "%sError creating the process\n%s", C_RED, C_RESET);
+            print(buffer, terminal);
+            free(buffer);
+            return -1;
+        case 0:
+            signal(SIGINT, SIG_IGN);
+            free(config.server);
+            free(config.discovery_ip);
+            free(config.user_ip);
+            close(poole2mono[1]);
+            monolith(poole2mono);
+            break;
+        default:
+            signal(SIGINT, sig_handler);
+            close(poole2mono[0]);
+            break;
+    }
+
 
     server = configServer(config.discovery_ip, config.discovery_port);
 
