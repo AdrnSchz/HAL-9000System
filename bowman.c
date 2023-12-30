@@ -334,26 +334,26 @@ void downloadCommand(char* song) {
 
 void checkDownloads() {
     char* buffer = NULL;
-    printF("Start downloading:\n");
+    print("Start downloading:\n", terminal);
     for (int i = 0; i < num_files; i++) {
         asprintf(&buffer, "%s\n", files[i].file_name);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         
         asprintf(&buffer, "\t%d%% |", (files[i].data_received * 100) / files[i].file_size);
-        printF(buffer);
+        print(buffer, terminal);
         
         int num_hashes = (files[i].data_received * 20) / files[i].file_size;  // Each hash represents 5%
         for (int j = 0; j < num_hashes; j++) {
-            printF("=");
+            print("=", terminal);
         }
 
         // Add spaces for the remaining percentage
         for (int j = num_hashes; j < 20; j++) {
-            printF(" ");
+            print(" ", terminal);
         }
 
-        printF("%|\n");
+        print("%|\n", terminal);
     }
     free(buffer);
 }

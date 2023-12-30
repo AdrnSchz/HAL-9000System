@@ -10,7 +10,7 @@
 #include "connections.h"
 #include <netinet/in.h>
 
-pthread_mutex_t terminal2 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t socket_mu = PTHREAD_MUTEX_INITIALIZER;
 
 struct sockaddr_in configServer(char* ip, int port) {
     struct sockaddr_in server;
@@ -58,18 +58,18 @@ void sendError(int sock) {
         buffer[i] = ERROR_FRAME[i];
     }
     buffer[i] = '\0';
-    pthread_mutex_lock(&terminal2);
+    pthread_mutex_lock(&socket_mu);
     write(sock, buffer, 256);
-    pthread_mutex_unlock(&terminal2);
+    pthread_mutex_unlock(&socket_mu);
 }
 
 Frame readFrame(int sock) {
     Frame frame;
     char* buffer = (char*) malloc(256);
     int i, j;
-    pthread_mutex_lock(&terminal2);
+    pthread_mutex_lock(&socket_mu);
     read(sock, buffer, 256);
-    pthread_mutex_unlock(&terminal2);
+    pthread_mutex_unlock(&socket_mu);
     //printF("Received frame: ");
     //printF(buffer);
     //printF("\n");
@@ -99,9 +99,9 @@ char* sendFrame(char* buffer, int sock, int len) {
     for (int i = len; i < 256; i++) {
         buffer[i] = '\0';
     }
-    pthread_mutex_lock(&terminal2);
+    pthread_mutex_lock(&socket_mu);
     write(sock, buffer, 256);
-    pthread_mutex_unlock(&terminal2);
+    pthread_mutex_unlock(&socket_mu);
     //printF("Sending frame: ");
     //printF(buffer);
     //printF("\n");

@@ -41,7 +41,7 @@ void* sendFile(void* arg) {
     pthread_mutex_unlock(&terminal);
     if (md5 == NULL) {
         asprintf(&buffer, C_RED "Error getting md5sum.\n" C_RESET);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
         buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
@@ -71,7 +71,7 @@ void* sendFile(void* arg) {
     fd_file = open(file, O_RDONLY);
     if (fd_file == -1) {
         asprintf(&buffer, C_RED "ERROR: %s not found.\n" C_RESET, file);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
@@ -114,7 +114,7 @@ void* sendFile(void* arg) {
 
     if (frame.type == '5' && strcmp(frame.header, "CHECK_OK") == 0) asprintf(&buffer, "%sSuccessfully sent %s to %s\n%s", C_GREEN, send->name, users[send->fd_pos], C_RESET);
     else asprintf(&buffer, "%sError sending %s to %s\n%s", C_RED, send->name, users[send->fd_pos], C_RESET);
-    printF(buffer);
+    print(buffer, terminal);
     free(buffer);
     free(file);
     free(md5);
@@ -133,7 +133,7 @@ void downloadSong(char* song, int user_pos, int isList) {
 
     if (isList == 0) {
         asprintf(&buffer, "\n%sNew request - %s wants to download %s.\n%s", C_GREEN, users[user_pos], song, C_RESET);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         buffer = NULL;
     }
@@ -143,7 +143,7 @@ void downloadSong(char* song, int user_pos, int isList) {
 
     if (fd_file == -1) {
         asprintf(&buffer,C_RED "ERROR: %s not found.\n" C_RESET, file);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
@@ -170,7 +170,7 @@ void downloadSong(char* song, int user_pos, int isList) {
 
     if (found == 0) {
         asprintf(&buffer, "Song not found\n");
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
@@ -178,7 +178,7 @@ void downloadSong(char* song, int user_pos, int isList) {
         return;
     }
     asprintf(&buffer, "Sending %s to %s\n", song, users[user_pos]);
-    printF(buffer);
+    print(buffer, terminal);
     free(buffer);
     buffer = NULL;
 
@@ -202,7 +202,7 @@ void downloadList(char* list, int user_pos) {
     int num_playlists = 0, num_songs = 0, found = 0;
 
     asprintf(&buffer, "\n%sNew request - %s wants to download the playlist %s.\n%s", C_GREEN, users[user_pos], list, C_RESET);
-    printF(buffer);
+    print(buffer, terminal);
     free(buffer);
     buffer = NULL;
     
@@ -212,7 +212,7 @@ void downloadList(char* list, int user_pos) {
 
     if (fd_file == -1) {
         asprintf(&buffer,C_RED "ERROR: %s not found.\n" C_RESET, file);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
@@ -247,7 +247,7 @@ void downloadList(char* list, int user_pos) {
 
     if (found == 0) {
         asprintf(&buffer, "Playlist not found\n");
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
@@ -255,7 +255,7 @@ void downloadList(char* list, int user_pos) {
         return;
     }
     asprintf(&buffer, "Sending %s to %s. A total of %d songs will be sent", list, users[user_pos], num_songs);
-    printF(buffer);
+    print(buffer, terminal);
     free(buffer);
     buffer = NULL;
 
@@ -294,7 +294,7 @@ int bowmanHandler(int sock, int user_pos) {
 
         if (found == 1) {
             asprintf(&buffer, "%s\nNew user connected: %s.\n%s", C_GREEN, users[user_pos], C_RESET);
-            printF(buffer);
+            print(buffer, terminal);
             free(buffer);
             buffer = NULL;
         }
@@ -302,7 +302,7 @@ int bowmanHandler(int sock, int user_pos) {
     else if (frame.type == '2') {
         if (strcmp(frame.header, "LIST_SONGS") == 0) {
             asprintf(&buffer, "\n%sNew request - %s requires the list of songs.\n%sSending song list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
-            printF(buffer);
+            print(buffer, terminal);
             free(buffer);
             buffer = NULL;
 
@@ -310,8 +310,6 @@ int bowmanHandler(int sock, int user_pos) {
             int num_songs = 0;
             char* file = NULL;
             asprintf(&file, "%s/songs.txt", config.path);
-            printF(config.path);
-            printF("\n");
             char** songs = readSongs(file, &num_songs);
             free(file);
             file = NULL;
@@ -366,7 +364,7 @@ int bowmanHandler(int sock, int user_pos) {
         }
         else if (strcmp(frame.header, "LIST_PLAYLISTS") == 0) {
             asprintf(&buffer, "\n%sNew request - %s requires the list of playlists.\n%sSending playlist list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
-            printF(buffer);
+            print(buffer, terminal);
             free(buffer);
             buffer = NULL;
 
@@ -429,7 +427,7 @@ int bowmanHandler(int sock, int user_pos) {
                             remaining_space -= song_length; 
                         } else {
                             // Not enough space -> send the current buffer
-                            printF("\n\n3\n");
+                            print("\n\n3\n", terminal);
                             buffer = sendFrame(buffer, sock, strlen(buffer));
 
                             // Reset the buffer for the next iteration
@@ -450,7 +448,6 @@ int bowmanHandler(int sock, int user_pos) {
                     }
                 } else {
                     // Not enough space -> send the current buffer
-                    printF("\n\n1\n");
                     buffer = sendFrame(buffer, sock, strlen(buffer));
 
                     // Reset the buffer for the next iteration
@@ -466,7 +463,6 @@ int bowmanHandler(int sock, int user_pos) {
                     i -= 1;
                 }   
             }
-            printF("\n\n2\n");
             buffer = sendFrame(buffer, sock, strlen(buffer));
         }
     }
@@ -482,20 +478,20 @@ int bowmanHandler(int sock, int user_pos) {
         asprintf(&buffer, T6_OK);
         buffer = sendFrame(buffer, sock, strlen(buffer));
         asprintf(&buffer, "\n%sUser %s disconnected%s\n", C_RED, frame.data, C_RESET);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         buffer = NULL;
 
         return -1;
     }
     else if (frame.type == '7') {
-        printF(C_RED);
-        printF("Sent wrong frame\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sSent wrong frame\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
         frame = freeFrame(frame);
     }
     else {
-        printF("Wrong frame\n");
+        print("Wrong frame\n", terminal);
         sendError(sock);
         frame = freeFrame(frame);
     }
@@ -528,7 +524,7 @@ static int listenConnections() {
     users = malloc(sizeof(char*));
     char* buffer = NULL;
 
-    printF("\nWaiting for connections...\n");
+    print("\nWaiting for connections...\n", terminal);
     
     while (1) {
         readfds = buildSelect();
@@ -536,7 +532,7 @@ static int listenConnections() {
         int ready = select(CHECK_UP_TO, &readfds, NULL, NULL, NULL);
         
         if (ready == -1) {
-            printF("Error in select\n");
+            print("Error in select\n", terminal);
             return -1;
         }
         else {
@@ -544,7 +540,7 @@ static int listenConnections() {
                 users_fd[num_users] =  accept(bow_sock, NULL, NULL);
                 if (users_fd[num_users] == -1) {
                     asprintf(&buffer, "%sError accepting %s socket connection\n%s", C_RED, "bowman", C_RESET);
-                    printF(buffer);
+                    print(buffer, terminal);
                     free(buffer);
                     buffer = NULL;
                     return -1;
@@ -589,17 +585,17 @@ void logout() { // closear download sock
     disc_sock = socket(AF_INET, SOCK_STREAM, 0);
 
     if (disc_sock == -1) {
-        printF(C_RED);
-        printF("Error creating socket\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sError creating socket\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
 
         return;
     }
 
     if (connect(disc_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
-        printF(C_RED);
-        printF("Error connecting to the server!\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sError connecting to the server!\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
 
         return;
     }
@@ -610,14 +606,14 @@ void logout() { // closear download sock
     frame = readFrame(disc_sock);
     if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
         asprintf(&buffer, "%sSuccessfully aborted\n%s", C_GREEN, C_RESET);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         buffer = NULL;
         close(disc_sock);
     }
     else {
         asprintf(&buffer, "%sCouldn't abort successfully\n%s", C_RED, C_RESET);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         buffer = NULL;
     }
@@ -633,17 +629,16 @@ void logout() { // closear download sock
 
         if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
             asprintf(&buffer, "%sDisconnected user %s\n%s", C_GREEN, users[i], C_RESET);
-            printF(buffer);
+            print(buffer, terminal);
             free(buffer);
             buffer = NULL;
             close(users_fd[i]);
             free(users[i]);
             users[i] = NULL;
         }
-        else {
-            
+        else { 
             asprintf(&buffer, "%sCouldn't close %s user connection\n%s", C_RED, users[i], C_RESET);
-            printF(buffer);
+            print(buffer, terminal);
             free(buffer);
             buffer = NULL;
         }
@@ -663,10 +658,11 @@ void monolith() {
     int file_fd = open(buffer, O_CREAT | O_RDWR, 0666);
     free(config.path);
     free(buffer);
+    buffer = NULL;
 
     if (file_fd == -1) {
         asprintf(&buffer, "%sError opening stats.txt\n%s", C_RED, C_RESET);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         return;
     }
@@ -731,7 +727,6 @@ void monolith() {
             write(file_fd, aux, strlen(aux));
         }
         free(aux);
-        free(buffer);
         lseek(file_fd, 0, SEEK_SET);
         aux = readUntil(file_fd, '\n');
         num = atoi(aux);
@@ -740,13 +735,14 @@ void monolith() {
         asprintf(&aux, "%d\n", num + 1);
         write(file_fd, aux, strlen(aux));
         free(aux);
+        free(buffer);
     }
 }
 
 void sig_handler(int sigsum) {
     switch(sigsum) {
         case SIGINT:
-            printF("\nAborting...\n");
+            print("\nAborting...\n", terminal);
             logout();
             free(config.server);
             free(config.path);
@@ -776,9 +772,10 @@ int main(int argc, char *argv[]) {
     Frame frame;
     
     if (argc != 2) {
-        printF(C_RED);
-        printF("Usage: ./poole <config_file>\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sUsage: ./poole <config_file>\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
+
         return -1;
     }
 
@@ -790,13 +787,13 @@ int main(int argc, char *argv[]) {
     }
 
     config = readConfigPol(argv[1]);
-    printF("Reading configuration file\n");
+    print("Reading configuration file\n", terminal);
 
 
     if (checkPort(config.discovery_port) == -1 || checkPort(config.user_port) == -1) {
-        printF(C_RED);
-        printF("ERROR: Invalid port.\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sError: Invalid port\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
 
         return -1;
     }
@@ -827,22 +824,22 @@ int main(int argc, char *argv[]) {
     disc_sock = socket(AF_INET, SOCK_STREAM, 0);
 
     if (disc_sock == -1) {
-        printF(C_RED);
-        printF("Error creating socket\n");
-        printF(C_RESET);
-
+        asprintf(&buffer, "%sError creating socket\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
+        
         return -1;
     }
     
     asprintf(&buffer, "Conecting %s Server to the system...\n", config.server);
-    printF(buffer);
+    print(buffer, terminal);
     free(buffer);
     buffer = NULL;
 
     if (connect(disc_sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
-        printF(C_RED);
-        printF("Error connecting to the server!\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sError connecting to the server!\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
 
         return -1;
     }
@@ -860,14 +857,14 @@ int main(int argc, char *argv[]) {
 
         if (bow_sock == -1) {
             asprintf(&buffer, "%sError opening the socket for %s\n%s", C_RED, "bowman", C_RESET);
-            printF(buffer);
+            print(buffer, terminal);
             free(buffer);
 
             return -1;
         }
 
         asprintf(&buffer, C_GREEN "Connected to HAL 9000 System, ready to listen to Bowmans petitions\n" C_RESET);
-        printF(buffer);
+        print(buffer, terminal);
         free(buffer);
         buffer = NULL;
 
@@ -876,10 +873,11 @@ int main(int argc, char *argv[]) {
         }
     }
     else {
-        printF(C_RED);
-        printF("Error trying to connect to HAL 9000 system\n");
-        printF(C_RESET);
+        asprintf(&buffer, "%sError trying to connect to HAL 9000 system\n%s", C_RED, C_RESET);
+        print(buffer, terminal);
+        free(buffer);
         close(disc_sock);
+        
         return -1;
     } 
     return 0;
