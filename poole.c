@@ -657,8 +657,6 @@ void monolith() {
     asprintf(&buffer, "%s/stats.txt", config.path);
     int file_fd = open(buffer, O_CREAT | O_RDWR, 0666);
     free(config.path);
-    free(buffer);
-    buffer = NULL;
 
     if (file_fd == -1) {
         asprintf(&buffer, "%sError opening stats.txt\n%s", C_RED, C_RESET);
@@ -668,6 +666,8 @@ void monolith() {
     }
 
     if (lseek(file_fd, 0, SEEK_END) == 0) {
+        free(buffer);
+        buffer = NULL;
         asprintf(&buffer, "0\n");
         write(file_fd, buffer, strlen(buffer));
     }
@@ -675,9 +675,11 @@ void monolith() {
         i = 0;
         found = 0;
         num = 0;
+        free(buffer);
+        buffer = NULL;
         do {
             buffer = realloc(buffer, i + 1);
-            read(poole2mono[0], &buffer[i], 1);
+            read(poole2mono[0], buffer + i, 1);
             
             if (buffer[i] == '\n') {
                 free(buffer);
@@ -735,7 +737,6 @@ void monolith() {
         asprintf(&aux, "%d\n", num + 1);
         write(file_fd, aux, strlen(aux));
         free(aux);
-        free(buffer);
     }
 }
 
