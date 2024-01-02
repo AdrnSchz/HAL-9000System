@@ -141,7 +141,6 @@ void downloadSong(char* song, int user_pos, int isList) {
     int num_songs = 0, found = 0;
     Send* send = malloc(sizeof(Send));
 
-    print("4\n", &terminal);
     if (isList == 0) {
         asprintf(&buffer, "\n%sNew request - %s wants to download %s.\n%s", C_GREEN, users[user_pos], song, C_RESET);
         print(buffer, &terminal);
@@ -164,11 +163,9 @@ void downloadSong(char* song, int user_pos, int isList) {
         return;
     }
     
-    print("5\n", &terminal);
     readNum(fd_file, &num_songs);
     for (int i = 0; i < num_songs; i++) {
         readLine(fd_file, &buffer);
-        print("5.5\n", &terminal);
         if (strcmp(buffer, song) == 0) {
             found = 1;
             send->name = malloc(strlen(buffer) + 1);
@@ -181,7 +178,6 @@ void downloadSong(char* song, int user_pos, int isList) {
         buffer = NULL;
     }
     close(fd_file);
-    print("6\n", &terminal);
     if (found == 0) {
         asprintf(&buffer, "Song not found\n");
         print(buffer, &terminal);
@@ -200,20 +196,15 @@ void downloadSong(char* song, int user_pos, int isList) {
 
     free(file);
     file = NULL;
-    print("7\n", &terminal);
     pthread_mutex_lock(&globals);
-    print("7.1\n", &terminal);
     ids = realloc(ids, sizeof(int) * (num_threads + 1));
     ids[num_threads] = -1;
     send->thread_pos = num_threads;
     num_threads++;
-    print("7.2\n", &terminal);
     threads = realloc(threads, sizeof(pthread_t) * (num_threads));
     pthread_mutex_unlock(&globals);
     pthread_create(&threads[send->thread_pos], NULL, sendFile, send);
-    print("7.3\n", &terminal);
     write(poole2mono[1], send->name, strlen(send->name) + 1);
-    print("8\n", &terminal);
 }
 
 void downloadList(char* list, int user_pos) {
@@ -243,7 +234,6 @@ void downloadList(char* list, int user_pos) {
 
     readNum(fd_file, &num_playlists);
     for (int i = 0; i < num_playlists; i++) {
-        print("1\n", &terminal);
         readNum(fd_file, &num_songs);
         readLine(fd_file, &buffer);
         
@@ -251,9 +241,6 @@ void downloadList(char* list, int user_pos) {
             found = 1;
             free(buffer);
             for (int j = 0; j < num_songs; j++) {
-                char* h;
-                asprintf(&h, "2 - fd file: %d\n", fd_file);
-                print(h, &terminal);
                 readLine(fd_file, &buffer);
                 downloadSong(buffer, user_pos, 1);
                 free(buffer);
@@ -263,7 +250,6 @@ void downloadList(char* list, int user_pos) {
         }
 
         for (int j = 0; j < num_songs; j++) {
-            print("3\n", &terminal);
             readLine(fd_file, &buffer);
             free(buffer);
             buffer = NULL;
