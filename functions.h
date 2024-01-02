@@ -39,7 +39,7 @@
 #define C_BOLDGREEN "\033[1m\033[32m"
 #define BOLD    "\033[1m"
 
-void print(char *str, pthread_mutex_t terminal);
+void print(char *str, pthread_mutex_t* terminal);
 /********************************************************************
  *
  * @Purpose: Reads an integer from a file descriptor and stores it in the specified variable.

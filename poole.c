@@ -29,7 +29,7 @@ pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER, globals = PTHREAD_MUTEX_IN
 void* sendFile(void* arg) {
     Send* send = (Send*) arg;
     int fd_file, size = 0, sent = 0;
-    char* buffer = NULL, *file = NULL, *md5 = NULL, *data;
+    char* buffer = NULL, *file = NULL, *md5 = NULL;
     int index = send->thread_pos;
 
     asprintf(&file, "%s/%s", config.path, send->name);
@@ -40,7 +40,7 @@ void* sendFile(void* arg) {
     pthread_mutex_unlock(&terminal);
     if (md5 == NULL) {
         asprintf(&buffer, C_RED "Error getting md5sum.\n" C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
         pthread_mutex_lock(&socket_mu);
@@ -72,7 +72,7 @@ void* sendFile(void* arg) {
     fd_file = open(file, O_RDONLY);
     if (fd_file == -1) {
         asprintf(&buffer, C_RED "ERROR: %s not found.\n" C_RESET, file);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
@@ -96,13 +96,13 @@ void* sendFile(void* arg) {
     int occupied = 3 + 9 + strlen(buffer) + 1;
     free(buffer);
     buffer = NULL;
+    char* data = malloc(space);
 
     //send file
     while (sent < size) {
         if (size - sent < space) {
             space = size - sent;
         }
-        data = realloc(data, space);
         read(fd_file, data, space);
         asprintf(&buffer, T4_DATA, ids[index]);
         buffer = realloc(buffer, 256);
@@ -113,8 +113,6 @@ void* sendFile(void* arg) {
         sent += space;
         free(buffer);
         buffer = NULL;
-        free(data);
-        data = NULL;
         //usleep(250);
     }
 
@@ -125,16 +123,16 @@ void* sendFile(void* arg) {
 
     if (frame.type == '5' && strcmp(frame.header, "CHECK_OK") == 0) asprintf(&buffer, "%sSuccessfully sent %s to %s\n%s", C_GREEN, send->name, users[send->fd_pos], C_RESET);
     else asprintf(&buffer, "%sError sending %s to %s\n%s", C_RED, send->name, users[send->fd_pos], C_RESET);
-    print(buffer, terminal);
+    print(buffer, &terminal);
     free(buffer);
+    free(data);
     free(file);
     free(md5);
-    free(data);
     free(send->name);
     free(send);
     frame = freeFrame(frame);
     close (fd_file);
-
+    
     return NULL;
 }
 
@@ -143,9 +141,10 @@ void downloadSong(char* song, int user_pos, int isList) {
     int num_songs = 0, found = 0;
     Send* send = malloc(sizeof(Send));
 
+    print("4\n", &terminal);
     if (isList == 0) {
         asprintf(&buffer, "\n%sNew request - %s wants to download %s.\n%s", C_GREEN, users[user_pos], song, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         buffer = NULL;
     }
@@ -155,7 +154,7 @@ void downloadSong(char* song, int user_pos, int isList) {
 
     if (fd_file == -1) {
         asprintf(&buffer,C_RED "ERROR: %s not found.\n" C_RESET, file);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
@@ -165,10 +164,11 @@ void downloadSong(char* song, int user_pos, int isList) {
         return;
     }
     
+    print("5\n", &terminal);
     readNum(fd_file, &num_songs);
     for (int i = 0; i < num_songs; i++) {
         readLine(fd_file, &buffer);
-
+        print("5.5\n", &terminal);
         if (strcmp(buffer, song) == 0) {
             found = 1;
             send->name = malloc(strlen(buffer) + 1);
@@ -181,10 +181,10 @@ void downloadSong(char* song, int user_pos, int isList) {
         buffer = NULL;
     }
     close(fd_file);
-
+    print("6\n", &terminal);
     if (found == 0) {
         asprintf(&buffer, "Song not found\n");
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
@@ -194,23 +194,26 @@ void downloadSong(char* song, int user_pos, int isList) {
         return;
     }
     asprintf(&buffer, "Sending %s to %s\n", song, users[user_pos]);
-    print(buffer, terminal);
+    print(buffer, &terminal);
     free(buffer);
     buffer = NULL;
 
     free(file);
     file = NULL;
-
+    print("7\n", &terminal);
     pthread_mutex_lock(&globals);
+    print("7.1\n", &terminal);
     ids = realloc(ids, sizeof(int) * (num_threads + 1));
     ids[num_threads] = -1;
     send->thread_pos = num_threads;
     num_threads++;
+    print("7.2\n", &terminal);
     threads = realloc(threads, sizeof(pthread_t) * (num_threads));
     pthread_mutex_unlock(&globals);
     pthread_create(&threads[send->thread_pos], NULL, sendFile, send);
-
+    print("7.3\n", &terminal);
     write(poole2mono[1], send->name, strlen(send->name) + 1);
+    print("8\n", &terminal);
 }
 
 void downloadList(char* list, int user_pos) {
@@ -218,7 +221,7 @@ void downloadList(char* list, int user_pos) {
     int num_playlists = 0, num_songs = 0, found = 0;
 
     asprintf(&buffer, "\n%sNew request - %s wants to download the playlist %s.\n%s", C_GREEN, users[user_pos], list, C_RESET);
-    print(buffer, terminal);
+    print(buffer, &terminal);
     free(buffer);
     buffer = NULL;
     
@@ -228,7 +231,7 @@ void downloadList(char* list, int user_pos) {
 
     if (fd_file == -1) {
         asprintf(&buffer,C_RED "ERROR: %s not found.\n" C_RESET, file);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
@@ -240,7 +243,7 @@ void downloadList(char* list, int user_pos) {
 
     readNum(fd_file, &num_playlists);
     for (int i = 0; i < num_playlists; i++) {
-        //print("1\n", terminal);
+        print("1\n", &terminal);
         readNum(fd_file, &num_songs);
         readLine(fd_file, &buffer);
         
@@ -248,10 +251,10 @@ void downloadList(char* list, int user_pos) {
             found = 1;
             free(buffer);
             for (int j = 0; j < num_songs; j++) {
-                //print("2\n", terminal);
+                char* h;
+                asprintf(&h, "2 - fd file: %d\n", fd_file);
+                print(h, &terminal);
                 readLine(fd_file, &buffer);
-                //print(buffer, terminal);
-                //print("\n", terminal);
                 downloadSong(buffer, user_pos, 1);
                 free(buffer);
                 buffer = NULL;
@@ -260,7 +263,7 @@ void downloadList(char* list, int user_pos) {
         }
 
         for (int j = 0; j < num_songs; j++) {
-            //print("3\n", terminal);
+            print("3\n", &terminal);
             readLine(fd_file, &buffer);
             free(buffer);
             buffer = NULL;
@@ -270,7 +273,7 @@ void downloadList(char* list, int user_pos) {
 
     if (found == 0) {
         asprintf(&buffer, "Playlist not found\n");
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
@@ -280,7 +283,7 @@ void downloadList(char* list, int user_pos) {
         return;
     }
     asprintf(&buffer, "Sending %s to %s. A total of %d songs will be sent\n", list, users[user_pos], num_songs);
-    print(buffer, terminal);
+    print(buffer, &terminal);
     free(buffer);
     buffer = NULL;
 
@@ -323,7 +326,7 @@ int bowmanHandler(int sock, int user_pos) {
 
         if (found == 1) {
             asprintf(&buffer, "%s\nNew user connected: %s.\n%s", C_GREEN, users[user_pos], C_RESET);
-            print(buffer, terminal);
+            print(buffer, &terminal);
             free(buffer);
             buffer = NULL;
         }
@@ -331,7 +334,7 @@ int bowmanHandler(int sock, int user_pos) {
     else if (frame.type == '2') {
         if (strcmp(frame.header, "LIST_SONGS") == 0) {
             asprintf(&buffer, "\n%sNew request - %s requires the list of songs.\n%sSending song list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
-            print(buffer, terminal);
+            print(buffer, &terminal);
             free(buffer);
             buffer = NULL;
 
@@ -397,7 +400,7 @@ int bowmanHandler(int sock, int user_pos) {
         }
         else if (strcmp(frame.header, "LIST_PLAYLISTS") == 0) {
             asprintf(&buffer, "\n%sNew request - %s requires the list of playlists.\n%sSending playlist list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
-            print(buffer, terminal);
+            print(buffer, &terminal);
             free(buffer);
             buffer = NULL;
 
@@ -460,7 +463,7 @@ int bowmanHandler(int sock, int user_pos) {
                             remaining_space -= song_length; 
                         } else {
                             // Not enough space -> send the current buffer
-                            print("\n\n3\n", terminal);
+                            print("\n\n3\n", &terminal);
                             pthread_mutex_lock(&socket_mu);
                             buffer = sendFrame(buffer, sock, strlen(buffer));
                             pthread_mutex_unlock(&socket_mu);
@@ -519,7 +522,7 @@ int bowmanHandler(int sock, int user_pos) {
         buffer = sendFrame(buffer, sock, strlen(buffer));
         pthread_mutex_unlock(&socket_mu);
         asprintf(&buffer, "\n%sUser %s disconnected%s\n", C_RED, frame.data, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         buffer = NULL;
 
@@ -527,12 +530,12 @@ int bowmanHandler(int sock, int user_pos) {
     }
     else if (frame.type == '7') {
         asprintf(&buffer, "%sSent wrong frame\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         frame = freeFrame(frame);
     }
     else {
-        print("Wrong frame\n", terminal);
+        print("Wrong frame\n", &terminal);
         pthread_mutex_lock(&socket_mu);
         sendError(sock);
         pthread_mutex_unlock(&socket_mu);
@@ -567,7 +570,7 @@ static int listenConnections() {
     users = malloc(sizeof(char*));
     char* buffer = NULL;
 
-    print("\nWaiting for connections...\n", terminal);
+    print("\nWaiting for connections...\n", &terminal);
     
     while (1) {
         readfds = buildSelect();
@@ -575,7 +578,7 @@ static int listenConnections() {
         int ready = select(CHECK_UP_TO, &readfds, NULL, NULL, NULL);
         
         if (ready == -1) {
-            print("Error in select\n", terminal);
+            print("Error in select\n", &terminal);
             return -1;
         }
         else {
@@ -583,7 +586,7 @@ static int listenConnections() {
                 users_fd[num_users] =  accept(bow_sock, NULL, NULL);
                 if (users_fd[num_users] == -1) {
                     asprintf(&buffer, "%sError accepting %s socket connection\n%s", C_RED, "bowman", C_RESET);
-                    print(buffer, terminal);
+                    print(buffer, &terminal);
                     free(buffer);
                     buffer = NULL;
                     return -1;
@@ -629,7 +632,7 @@ void logout() { // closear download sock
 
     if (disc_sock == -1) {
         asprintf(&buffer, "%sError creating socket\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
 
         return;
@@ -637,7 +640,7 @@ void logout() { // closear download sock
 
     if (connect(disc_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
         asprintf(&buffer, "%sError connecting to the server!\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
 
         return;
@@ -654,47 +657,48 @@ void logout() { // closear download sock
 
     if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
         asprintf(&buffer, "%sSuccessfully aborted\n%s", C_GREEN, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         buffer = NULL;
         close(disc_sock);
     }
     else {
         asprintf(&buffer, "%sCouldn't close discovery successfully\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         buffer = NULL;
     }
     frame = freeFrame(frame);
 
     // Close Bowman connections
+    if (num_users != 0) {
+        for (int i = 0; i < num_users; i++) {
+            asprintf(&buffer, T6_POOLE, config.server);
+            pthread_mutex_lock(&socket_mu);
+            buffer = sendFrame(buffer, users_fd[i], strlen(buffer));
+            pthread_mutex_unlock(&socket_mu);
 
-    for (int i = 0; i < num_users; i++) {
-        asprintf(&buffer, T6_POOLE, config.server);
-        pthread_mutex_lock(&socket_mu);
-        buffer = sendFrame(buffer, users_fd[i], strlen(buffer));
-        pthread_mutex_unlock(&socket_mu);
+            pthread_mutex_lock(&socket_mu);
+            frame = readFrame(users_fd[i]);
+            pthread_mutex_unlock(&socket_mu);
 
-        pthread_mutex_lock(&socket_mu);
-        frame = readFrame(users_fd[i]);
-        pthread_mutex_unlock(&socket_mu);
-
-        if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
-            asprintf(&buffer, "%sDisconnected user %s\n%s", C_GREEN, users[i], C_RESET);
-            print(buffer, terminal);
-            free(buffer);
-            buffer = NULL;
-            close(users_fd[i]);
-            free(users[i]);
-            users[i] = NULL;
+            if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
+                asprintf(&buffer, "%sDisconnected user %s\n%s", C_GREEN, users[i], C_RESET);
+                print(buffer, &terminal);
+                free(buffer);
+                buffer = NULL;
+                close(users_fd[i]);
+                free(users[i]);
+                users[i] = NULL;
+            }
+            else {
+                asprintf(&buffer, "%sCouldn't close %s user connection\n%s", C_RED, users[i], C_RESET);
+                print(buffer, &terminal);
+                free(buffer);
+                buffer = NULL;
+            }
+            frame = freeFrame(frame);
         }
-        else {
-            asprintf(&buffer, "%sCouldn't close %s user connection\n%s", C_RED, users[i], C_RESET);
-            print(buffer, terminal);
-            free(buffer);
-            buffer = NULL;
-        }
-        frame = freeFrame(frame);
     }
 
     write(poole2mono[1], "\n", 1);
@@ -712,7 +716,7 @@ void monolith() {
 
     if (file_fd == -1) {
         asprintf(&buffer, "%sError opening stats.txt\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         return;
     }
@@ -752,7 +756,7 @@ void monolith() {
                 }
             }
             
-            if (found == i - 1) {
+            if (found == i) {
                 found = 1;
                 break;
             } else found = 0;
@@ -795,7 +799,7 @@ void monolith() {
 void sig_handler(int sigsum) {
     switch(sigsum) {
         case SIGINT:
-            print("\nAborting...\n", terminal);
+            print("\nAborting...\n", &terminal);
             logout();
             free(config.server);
             free(config.path);
@@ -826,7 +830,7 @@ int main(int argc, char *argv[]) {
     
     if (argc != 2) {
         asprintf(&buffer, "%sUsage: ./poole <config_file>\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
 
         return -1;
@@ -834,18 +838,18 @@ int main(int argc, char *argv[]) {
 
     if (pipe(poole2mono) == -1) {
         asprintf(&buffer, "%sError creating the pipe\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         return -1;
     }
 
     config = readConfigPol(argv[1]);
-    print("Reading configuration file\n", terminal);
+    print("Reading configuration file\n", &terminal);
 
 
     if (checkPort(config.discovery_port) == -1 || checkPort(config.user_port) == -1) {
         asprintf(&buffer, "%sError: Invalid port\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
 
         return -1;
@@ -854,7 +858,7 @@ int main(int argc, char *argv[]) {
         switch (fork()){
         case -1:
             asprintf(&buffer, "%sError creating the process\n%s", C_RED, C_RESET);
-            print(buffer, terminal);
+            print(buffer, &terminal);
             free(buffer);
             return -1;
         case 0:
@@ -863,7 +867,7 @@ int main(int argc, char *argv[]) {
             free(config.discovery_ip);
             free(config.user_ip);
             close(poole2mono[1]);
-            monolith(poole2mono);
+            monolith();
             break;
         default:
             signal(SIGINT, sig_handler);
@@ -878,20 +882,20 @@ int main(int argc, char *argv[]) {
 
     if (disc_sock == -1) {
         asprintf(&buffer, "%sError creating socket\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         
         return -1;
     }
     
     asprintf(&buffer, "Conecting %s Server to the system...\n", config.server);
-    print(buffer, terminal);
+    print(buffer, &terminal);
     free(buffer);
     buffer = NULL;
 
     if (connect(disc_sock, (struct sockaddr *) &server, sizeof(server)) < 0) {
         asprintf(&buffer, "%sError connecting to the server!\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
 
         return -1;
@@ -914,14 +918,14 @@ int main(int argc, char *argv[]) {
 
         if (bow_sock == -1) {
             asprintf(&buffer, "%sError opening the socket for %s\n%s", C_RED, "bowman", C_RESET);
-            print(buffer, terminal);
+            print(buffer, &terminal);
             free(buffer);
 
             return -1;
         }
 
         asprintf(&buffer, C_GREEN "Connected to HAL 9000 System, ready to listen to Bowmans petitions\n" C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         buffer = NULL;
 
@@ -931,7 +935,7 @@ int main(int argc, char *argv[]) {
     }
     else {
         asprintf(&buffer, "%sError trying to connect to HAL 9000 system\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
+        print(buffer, &terminal);
         free(buffer);
         close(disc_sock);
         
