@@ -14,7 +14,6 @@
 *
 ********************************************************************/
 #include "functions.h"
-#include "test.h"
 #include "configs.h"
 #include "connections.h"
 
@@ -25,7 +24,7 @@ int num_users = 0, num_threads = 0;
 char** users;
 pthread_t* threads;
 int* ids;
-pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER, globals = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER, globals = PTHREAD_MUTEX_INITIALIZER, socket_mu = PTHREAD_MUTEX_INITIALIZER;
 
 void* sendFile(void* arg) {
     Send* send = (Send*) arg;
@@ -44,7 +43,9 @@ void* sendFile(void* arg) {
         print(buffer, terminal);
         free(buffer);
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
+        pthread_mutex_lock(&socket_mu);
         buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
+        pthread_mutex_unlock(&socket_mu);
         return NULL;
     }
     file = NULL;
@@ -75,19 +76,20 @@ void* sendFile(void* arg) {
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
+        pthread_mutex_lock(&socket_mu);
         buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
+        pthread_mutex_unlock(&socket_mu);
         return NULL;
     }
 
     size = (int) lseek(fd_file, 0, SEEK_END);
     lseek(fd_file, 0, SEEK_SET);
-    data = (char*) malloc(sizeof(char) * size);
-    read(fd_file, data, size);
-    close (fd_file);
 
     // send frame
     asprintf(&buffer, T4_NEW_FILE, send->name, size, md5, ids[index]);
+    pthread_mutex_lock(&socket_mu);
     buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
+    pthread_mutex_unlock(&socket_mu);
 
     asprintf(&buffer, "%d", ids[index]);
     int space = 256 - 3 - 9 - strlen(buffer) - 1;
@@ -100,17 +102,26 @@ void* sendFile(void* arg) {
         if (size - sent < space) {
             space = size - sent;
         }
+        data = realloc(data, space);
+        read(fd_file, data, space);
         asprintf(&buffer, T4_DATA, ids[index]);
         buffer = realloc(buffer, 256);
-        memcpy(buffer + strlen(buffer), data + sent, space);
+        memcpy(buffer + strlen(buffer), data, space);
+        pthread_mutex_lock(&socket_mu);
         buffer = sendFrame(buffer, users_fd[send->fd_pos], space + occupied);
+        pthread_mutex_unlock(&socket_mu);
         sent += space;
         free(buffer);
         buffer = NULL;
+        free(data);
+        data = NULL;
+        //usleep(250);
     }
 
     //mirar de cambiar esto, cuando se descargan muchos a la vez este puede recibir el md5sum de otro
+    pthread_mutex_lock(&socket_mu);
     Frame frame = readFrame(users_fd[send->fd_pos]);
+    pthread_mutex_unlock(&socket_mu);
 
     if (frame.type == '5' && strcmp(frame.header, "CHECK_OK") == 0) asprintf(&buffer, "%sSuccessfully sent %s to %s\n%s", C_GREEN, send->name, users[send->fd_pos], C_RESET);
     else asprintf(&buffer, "%sError sending %s to %s\n%s", C_RED, send->name, users[send->fd_pos], C_RESET);
@@ -122,6 +133,7 @@ void* sendFile(void* arg) {
     free(send->name);
     free(send);
     frame = freeFrame(frame);
+    close (fd_file);
 
     return NULL;
 }
@@ -147,7 +159,9 @@ void downloadSong(char* song, int user_pos, int isList) {
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
+        pthread_mutex_lock(&socket_mu);
         buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
+        pthread_mutex_unlock(&socket_mu);
         return;
     }
     
@@ -174,7 +188,9 @@ void downloadSong(char* song, int user_pos, int isList) {
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
+        pthread_mutex_lock(&socket_mu);
         buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
+        pthread_mutex_unlock(&socket_mu);
         return;
     }
     asprintf(&buffer, "Sending %s to %s\n", song, users[user_pos]);
@@ -216,12 +232,15 @@ void downloadList(char* list, int user_pos) {
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
+        pthread_mutex_lock(&socket_mu);
         buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
+        pthread_mutex_unlock(&socket_mu);
         return;
     }
 
     readNum(fd_file, &num_playlists);
     for (int i = 0; i < num_playlists; i++) {
+        //print("1\n", terminal);
         readNum(fd_file, &num_songs);
         readLine(fd_file, &buffer);
         
@@ -229,7 +248,10 @@ void downloadList(char* list, int user_pos) {
             found = 1;
             free(buffer);
             for (int j = 0; j < num_songs; j++) {
+                //print("2\n", terminal);
                 readLine(fd_file, &buffer);
+                //print(buffer, terminal);
+                //print("\n", terminal);
                 downloadSong(buffer, user_pos, 1);
                 free(buffer);
                 buffer = NULL;
@@ -238,6 +260,7 @@ void downloadList(char* list, int user_pos) {
         }
 
         for (int j = 0; j < num_songs; j++) {
+            //print("3\n", terminal);
             readLine(fd_file, &buffer);
             free(buffer);
             buffer = NULL;
@@ -251,10 +274,12 @@ void downloadList(char* list, int user_pos) {
         free(buffer);
         buffer = NULL;
         asprintf(&buffer, T4_NEW_FILE, "-", 0, "-", -1);
+        pthread_mutex_lock(&socket_mu);
         buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
+        pthread_mutex_unlock(&socket_mu);
         return;
     }
-    asprintf(&buffer, "Sending %s to %s. A total of %d songs will be sent", list, users[user_pos], num_songs);
+    asprintf(&buffer, "Sending %s to %s. A total of %d songs will be sent\n", list, users[user_pos], num_songs);
     print(buffer, terminal);
     free(buffer);
     buffer = NULL;
@@ -278,11 +303,15 @@ int bowmanHandler(int sock, int user_pos) {
     int buffer_length = 0;
     int remaining_space = 0;
 
+    pthread_mutex_lock(&socket_mu);
     frame = readFrame(sock);
+    pthread_mutex_unlock(&socket_mu);
     if (frame.type == '1' && strcmp(frame.header, "NEW_BOWMAN") == 0) {
         int found = 0;
         asprintf(&buffer, T1_OK);
+        pthread_mutex_lock(&socket_mu);
         buffer = sendFrame(buffer, sock, strlen(buffer));
+        pthread_mutex_unlock(&socket_mu);
         
         users[user_pos] = getString(0, '\0', frame.data);
 
@@ -343,7 +372,9 @@ int bowmanHandler(int sock, int user_pos) {
                     remaining_space -= song_length; 
                 } else {
                     // Not enough space -> send the current buffer
+                    pthread_mutex_lock(&socket_mu);
                     buffer = sendFrame(buffer, sock, strlen(buffer));
+                    pthread_mutex_unlock(&socket_mu);
 
                     // Reset the buffer for the next iteration
                     asprintf(&num_songs_str, "%d#", num_songs);
@@ -358,7 +389,9 @@ int bowmanHandler(int sock, int user_pos) {
                 }
             }
             // Enough space -> send the current buffer
+            pthread_mutex_lock(&socket_mu);
             buffer = sendFrame(buffer, sock, strlen(buffer));
+            pthread_mutex_unlock(&socket_mu);
             buffer_length = 0;
             remaining_space = 0;
         }
@@ -428,7 +461,9 @@ int bowmanHandler(int sock, int user_pos) {
                         } else {
                             // Not enough space -> send the current buffer
                             print("\n\n3\n", terminal);
+                            pthread_mutex_lock(&socket_mu);
                             buffer = sendFrame(buffer, sock, strlen(buffer));
+                            pthread_mutex_unlock(&socket_mu);
 
                             // Reset the buffer for the next iteration
                             asprintf(&num_playlists_str, "%d", num_playlists);
@@ -448,7 +483,9 @@ int bowmanHandler(int sock, int user_pos) {
                     }
                 } else {
                     // Not enough space -> send the current buffer
+                    pthread_mutex_lock(&socket_mu);
                     buffer = sendFrame(buffer, sock, strlen(buffer));
+                    pthread_mutex_unlock(&socket_mu);
 
                     // Reset the buffer for the next iteration
                     asprintf(&num_playlists_str, "%d", num_playlists);
@@ -463,7 +500,9 @@ int bowmanHandler(int sock, int user_pos) {
                     i -= 1;
                 }   
             }
+            pthread_mutex_lock(&socket_mu);
             buffer = sendFrame(buffer, sock, strlen(buffer));
+            pthread_mutex_unlock(&socket_mu);
         }
     }
     else if (frame.type == '3' && strcmp(frame.header, "DOWNLOAD_SONG") == 0) {
@@ -476,7 +515,9 @@ int bowmanHandler(int sock, int user_pos) {
     }
     else if (frame.type == '6' && strcmp(frame.header, "EXIT") == 0) {
         asprintf(&buffer, T6_OK);
+        pthread_mutex_lock(&socket_mu);
         buffer = sendFrame(buffer, sock, strlen(buffer));
+        pthread_mutex_unlock(&socket_mu);
         asprintf(&buffer, "\n%sUser %s disconnected%s\n", C_RED, frame.data, C_RESET);
         print(buffer, terminal);
         free(buffer);
@@ -492,7 +533,9 @@ int bowmanHandler(int sock, int user_pos) {
     }
     else {
         print("Wrong frame\n", terminal);
+        pthread_mutex_lock(&socket_mu);
         sendError(sock);
+        pthread_mutex_unlock(&socket_mu);
         frame = freeFrame(frame);
     }
 
@@ -601,9 +644,14 @@ void logout() { // closear download sock
     }
 
     asprintf(&buffer, T6_POOLE, config.server);
+    pthread_mutex_lock(&socket_mu);
     buffer = sendFrame(buffer, disc_sock, strlen(buffer));
+    pthread_mutex_unlock(&socket_mu);
 
+    pthread_mutex_lock(&socket_mu);
     frame = readFrame(disc_sock);
+    pthread_mutex_unlock(&socket_mu);
+
     if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
         asprintf(&buffer, "%sSuccessfully aborted\n%s", C_GREEN, C_RESET);
         print(buffer, terminal);
@@ -612,7 +660,7 @@ void logout() { // closear download sock
         close(disc_sock);
     }
     else {
-        asprintf(&buffer, "%sCouldn't abort successfully\n%s", C_RED, C_RESET);
+        asprintf(&buffer, "%sCouldn't close discovery successfully\n%s", C_RED, C_RESET);
         print(buffer, terminal);
         free(buffer);
         buffer = NULL;
@@ -623,9 +671,13 @@ void logout() { // closear download sock
 
     for (int i = 0; i < num_users; i++) {
         asprintf(&buffer, T6_POOLE, config.server);
+        pthread_mutex_lock(&socket_mu);
         buffer = sendFrame(buffer, users_fd[i], strlen(buffer));
+        pthread_mutex_unlock(&socket_mu);
 
+        pthread_mutex_lock(&socket_mu);
         frame = readFrame(users_fd[i]);
+        pthread_mutex_unlock(&socket_mu);
 
         if (frame.type == '6' && strcmp(frame.header, "CON_OK") == 0) {
             asprintf(&buffer, "%sDisconnected user %s\n%s", C_GREEN, users[i], C_RESET);
@@ -636,7 +688,7 @@ void logout() { // closear download sock
             free(users[i]);
             users[i] = NULL;
         }
-        else { 
+        else {
             asprintf(&buffer, "%sCouldn't close %s user connection\n%s", C_RED, users[i], C_RESET);
             print(buffer, terminal);
             free(buffer);
@@ -846,9 +898,13 @@ int main(int argc, char *argv[]) {
     }
 
     asprintf(&buffer, T1_POOLE, config.server, config.user_ip, config.user_port);
+    pthread_mutex_lock(&socket_mu);
     buffer = sendFrame(buffer, disc_sock, strlen(buffer));
+    pthread_mutex_unlock(&socket_mu);
 
+    pthread_mutex_lock(&socket_mu);
     frame = readFrame(disc_sock);
+    pthread_mutex_unlock(&socket_mu);
 
     if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
         close(disc_sock);

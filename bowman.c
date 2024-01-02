@@ -16,7 +16,6 @@
  ********************************************************************/
 
 #include "functions.h"
-#include "test.h"
 #include "configs.h"
 #include "connections.h"
 
@@ -28,7 +27,6 @@ int num_files = 0, downloading = 0;
 File* files;
 int queue_id = 0;
 pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER;
-
 
 /********************************************************************
  *
@@ -136,8 +134,10 @@ void newFile(Frame frame) {
         file.fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
 
         if (file.fd == -1) {
-            asprintf(&buffer, "%sError creating/opening the mp3 file\n%s", C_RED, C_RESET);
+            asprintf(&buffer, "%s%s\nError creating/opening the mp3 file\n%s", C_RESET, C_RED, C_RESET);
             print(buffer, terminal);
+            print(BOLD, terminal);
+            print("\n$ ", terminal);
             return;
         }
         free(path);
@@ -150,9 +150,11 @@ void newFile(Frame frame) {
         }
     }
     else {
-        asprintf(&buffer, "%sSong or list does not exist\n%s", C_RED, C_RESET);
+        asprintf(&buffer, "%s%s\nSong or list does not exist\n%s", C_RESET, C_RED, C_RESET);
         print(buffer, terminal);
         free(buffer);
+        print(BOLD, terminal);
+        print("\n$ ", terminal);
     }
 }
 
@@ -188,7 +190,7 @@ Frame getFrameLoop(int sock) {
  * @Return: ---
  *
  ********************************************************************/
-void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
+void connection(struct sockaddr_in* poole, struct sockaddr_in discovery, int select) {
     char* buffer = NULL, *aux = NULL;
     Frame frame;
 
@@ -197,6 +199,10 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
         print(buffer, terminal);
         free(buffer);
         
+        if (select == 1) {
+            print(BOLD, terminal);
+            print("\n$ ", terminal);
+        }
         return;
     }
 
@@ -223,7 +229,11 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
             asprintf(&buffer, "%sError trying to connect to HAL 9000 system\n%s", C_RED, C_RESET);
             print(buffer, terminal);
             free(buffer);
-
+            
+            if (select == 1) {
+                print(BOLD, terminal);
+                print("\n$ ", terminal);
+            }
             return;
         }
 
@@ -252,17 +262,17 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
         }
     }
     else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
-        asprintf(&buffer, "%sCould not establish connection.\n%s", C_RED, C_RESET);
+        asprintf(&buffer, "%s%sThere are no poole server to which connect.\n%s", C_RESET, C_RED, C_RESET);
         print(buffer, terminal);
         free(buffer);
     }
     else if (frame.type == '7') {
-        asprintf(&buffer, "%sSent wrong frame\n%s", C_RED, C_RESET);
+        asprintf(&buffer, "%s%sSent wrong frame\n%s", C_RESET, C_RED, C_RESET);
         print(buffer, terminal);
         free(buffer);
     }
     else {
-        asprintf(&buffer, "%sReceived wrong frame\n%s", C_RED, C_RESET);
+        asprintf(&buffer, "%s%sReceived wrong frame\n%s", C_RESET, C_RED, C_RESET);
         print(buffer, terminal);
         free(buffer);
         
@@ -270,6 +280,12 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery) {
     }
     frame = freeFrame(frame);
     close(discovery_sock);
+    discovery_sock = 0;
+
+    if (select == 1) {
+        print(BOLD, terminal);
+        print("\n$ ", terminal);
+    }
 }
 
 /********************************************************************
@@ -340,7 +356,18 @@ void checkDownloads() {
         print(buffer, terminal);
         free(buffer);
         
-        asprintf(&buffer, "\t%d%% |", (files[i].data_received * 100) / files[i].file_size);
+        int percent = (files[i].data_received * 100) / files[i].file_size;
+        char* space;
+        if (percent < 10) {
+            space = "  ";
+        }
+        else if (percent < 100) {
+            space = " ";
+        }
+        else {
+            space = "";
+        }
+        asprintf(&buffer, "\t%d%% %s|", percent, space);
         print(buffer, terminal);
         
         int num_hashes = (files[i].data_received * 20) / files[i].file_size;  // Each hash represents 5%
@@ -396,12 +423,11 @@ int checkFrame() {
         else if (strcmp(frame.header, "FILE_DATA") == 0) {
             newData(frame);
         }
-        frame = freeFrame(frame);
     }          
     else if (frame.type == '6' && strcmp(frame.header, "SHUTDOWN") == 0) {
         asprintf(&buffer, T6_OK);
         buffer = sendFrame(buffer, poole_sock, strlen(buffer));
-        asprintf(&buffer, "\n%sServer %s got unexpectedly disconnected\n%s", C_RED, frame.data, C_RESET);
+        asprintf(&buffer, "\n%s%sServer %s got unexpectedly disconnected\n%s", C_RESET, C_RED, frame.data, C_RESET);
         print(buffer, terminal);
         free(buffer);
         buffer = NULL;
@@ -413,17 +439,15 @@ int checkFrame() {
         return 6;
     }
     else {
-        asprintf(&buffer, "%sReceived wrong frame\n%s", C_RED, C_RESET);
-        print(buffer, terminal);
-        free(buffer);
-        asprintf(&buffer, "Type: %c, header: %s, data: %s", frame.type, frame.header, frame.data);
+        asprintf(&buffer, "%s%s\nReceived wrong frame\n%s", C_RESET, C_RED, C_RESET);
         print(buffer, terminal);
         free(buffer);
 
         sendError(poole_sock);
-        frame = freeFrame(frame);
     }
 
+    frame = freeFrame(frame);
+    
     return 0;
 }
 /********************************************************************
@@ -534,7 +558,7 @@ int main(int argc, char *argv[]) {
                             break;
                         }
 
-                        connection(&poole, discovery);
+                        connection(&poole, discovery, 0);
                     break;
                     case 1:
                         // ==================================================
@@ -747,7 +771,14 @@ int main(int argc, char *argv[]) {
             else if (FD_ISSET(poole_sock, &readfds)) {
                 int res = checkFrame();
                 if (res == 6) {
-                    connection(&poole, discovery);
+                    if (configConnection(&discovery) == -1) {
+                        asprintf(&buffer, "%sError configuring connection with discovery\n%s", C_RED, C_RESET);
+                        print(buffer, terminal);
+                        free(buffer);
+                    
+                        return -1;
+                    }
+                    connection(&poole, discovery, 1);
                 }
             }
         }
