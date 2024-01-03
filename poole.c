@@ -696,9 +696,7 @@ void monolith() {
     char *buffer = NULL, *aux = NULL;
     int i = 0, found = 0, num = 0;
 
-    asprintf(&buffer, "%s/stats.txt", config.path);
-    int file_fd = open(buffer, O_CREAT | O_RDWR, 0666);
-    free(config.path);
+    int file_fd = open("stats.txt", O_CREAT | O_RDWR, 0666);
 
     if (file_fd == -1) {
         asprintf(&buffer, "%sError opening stats.txt\n%s", C_RED, C_RESET);
@@ -708,8 +706,6 @@ void monolith() {
     }
 
     if (lseek(file_fd, 0, SEEK_END) == 0) {
-        free(buffer);
-        buffer = NULL;
         asprintf(&buffer, "0\n");
         write(file_fd, buffer, strlen(buffer));
     }
@@ -852,6 +848,7 @@ int main(int argc, char *argv[]) {
             free(config.server);
             free(config.discovery_ip);
             free(config.user_ip);
+            free(config.path);
             close(poole2mono[1]);
             monolith();
             break;
