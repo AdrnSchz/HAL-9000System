@@ -22,7 +22,7 @@ Server_conf config;
 int* users_fd;
 int num_users = 0, num_threads = 0;
 char** users;
-pthread_t* threads;
+pthread_t* threads = NULL;
 int* ids;
 pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER, globals = PTHREAD_MUTEX_INITIALIZER, socket_mu = PTHREAD_MUTEX_INITIALIZER;
 
@@ -610,6 +610,11 @@ void logout() { // closear download sock
     Frame frame;
     int disc_sock;
     struct sockaddr_in discovery;
+
+    for (int i = 0; threads != NULL && i < num_threads; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    free(threads);
 
     // Close Discovery connection
     discovery = configServer(config.discovery_ip, config.discovery_port);

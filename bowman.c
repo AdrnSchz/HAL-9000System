@@ -307,6 +307,7 @@ void logout() {
     Frame frame, frame2;
 
     //joinear threads y acabar download o algo
+    if (thread != 0) pthread_join(thread, NULL);
 
     asprintf(&buffer, T6, config.user);
     buffer = sendFrame(buffer, poole_sock, strlen(buffer));
