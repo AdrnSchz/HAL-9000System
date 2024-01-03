@@ -31,6 +31,10 @@ void* sendFile(void* arg) {
     int fd_file, size = 0, sent = 0;
     char* buffer = NULL, *file = NULL, *md5 = NULL;
     int index = send->thread_pos;
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+    pthread_sigmask(SIG_BLOCK, &set, NULL);
 
     asprintf(&file, "%s/%s", config.path, send->name);
 
@@ -651,7 +655,6 @@ void logout() { // closear download sock
         print(buffer, &terminal);
         free(buffer);
         buffer = NULL;
-        close(disc_sock);
     }
     else {
         asprintf(&buffer, "%sCouldn't close discovery successfully\n%s", C_RED, C_RESET);
@@ -660,6 +663,7 @@ void logout() { // closear download sock
         buffer = NULL;
     }
     frame = freeFrame(frame);
+    close(disc_sock);
 
     // Close Bowman connections
     if (num_users != 0) {
@@ -678,9 +682,6 @@ void logout() { // closear download sock
                 print(buffer, &terminal);
                 free(buffer);
                 buffer = NULL;
-                close(users_fd[i]);
-                free(users[i]);
-                users[i] = NULL;
             }
             else {
                 asprintf(&buffer, "%sCouldn't close %s user connection\n%s", C_RED, users[i], C_RESET);
@@ -688,10 +689,13 @@ void logout() { // closear download sock
                 free(buffer);
                 buffer = NULL;
             }
+            close(users_fd[i]);
+            free(users[i]);
+            users[i] = NULL;
             frame = freeFrame(frame);
         }
     }
-
+    close(bow_sock);
     write(poole2mono[1], "\n", 1);
     wait(NULL);
     close(poole2mono[1]);

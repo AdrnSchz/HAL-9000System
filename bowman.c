@@ -63,7 +63,11 @@ int configConnection(struct sockaddr_in* server) {
 
 void* downloadSong() {
     char* buffer = NULL;
-    Msg msg;  
+    Msg msg;
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+    pthread_sigmask(SIG_BLOCK, &set, NULL);  
 
     while (downloading != 0) {
         msgrcv(queue_id, (struct msgbuf *)&msg, sizeof(Msg) - sizeof(long), 1, 0);
