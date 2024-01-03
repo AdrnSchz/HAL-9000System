@@ -59,7 +59,6 @@ typedef struct {
  * Structure for storing file data.
 */
 typedef struct {
-    char* list;
     char* file_name;
     int file_size;
     char* md5;
