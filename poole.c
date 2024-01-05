@@ -27,6 +27,198 @@ pthread_t* threads = NULL;
 Ids* ids;
 pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER, globals = PTHREAD_MUTEX_INITIALIZER, socket_mu = PTHREAD_MUTEX_INITIALIZER;
 
+void listSongs(int user_pos) {
+    char* buffer = NULL;
+    int buffer_length = 0, remaining_space = 0;
+
+    asprintf(&buffer, "\n%sNew request - %s requires the list of songs.\n%sSending song list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
+    print(buffer, &terminal);
+    free(buffer);
+    buffer = NULL;
+
+    // Get number of songs and songs
+    int num_songs = 0;
+    char* file = NULL;
+    asprintf(&file, "%s/songs.txt", config.path);
+    char** songs = readSongs(file, &num_songs);
+    free(file);
+    file = NULL;
+
+    char* num_songs_str = NULL;
+
+    asprintf(&num_songs_str, "%d#", num_songs);
+    asprintf(&buffer, T2_SONGS_RESPONSE, num_songs_str);
+    free(num_songs_str);
+    num_songs_str = NULL;
+
+    buffer_length = strlen(buffer);
+    remaining_space = 256 - buffer_length - 1;
+
+    for (int i = 0; i < num_songs; i++) {
+        int song_length = strlen(songs[i]);
+        
+        if (song_length <= remaining_space) {
+            if (i != 0) {
+                buffer = realloc(buffer, buffer_length + 2);
+                //buffer[buffer_length + 1] = '\0';
+                buffer[buffer_length] = '&';
+                buffer_length++;
+                remaining_space -= 1;
+            }
+            buffer = realloc(buffer, buffer_length + song_length + 1);
+            buffer[buffer_length + song_length] = '\0';
+            strcpy(buffer + buffer_length, songs[i]);
+
+            buffer_length += song_length;               
+            remaining_space -= song_length; 
+        } else {
+            // Not enough space -> send the current buffer
+            pthread_mutex_lock(&socket_mu);
+            buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
+            pthread_mutex_unlock(&socket_mu);
+
+            // Reset the buffer for the next iteration
+            asprintf(&num_songs_str, "%d#", num_songs);
+            asprintf(&buffer, T2_SONGS_RESPONSE, num_songs_str);
+            free(num_songs_str);
+            num_songs_str = NULL;
+            buffer_length = strlen(buffer);
+            remaining_space = 256 - buffer_length - 1;
+
+            // Process the song again
+            i--;
+        }
+    }
+    // Enough space -> send the current buffer
+    pthread_mutex_lock(&socket_mu);
+    buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
+    pthread_mutex_unlock(&socket_mu);
+    buffer_length = 0;
+    remaining_space = 0;
+}
+
+void listPlaylists(int user_pos) {
+    char* buffer = NULL;
+    int buffer_length = 0, remaining_space = 0;
+
+    asprintf(&buffer, "\n%sNew request - %s requires the list of playlists.\n%sSending playlist list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
+    print(buffer, &terminal);
+    free(buffer);
+    buffer = NULL;
+
+    // Get number of playlists and songs
+    int num_playlists = 0;
+    char* file;
+    asprintf(&file, "%s/playlists.txt", config.path); 
+    Playlist* playlists = readPlaylists(file, &num_playlists);
+    free(file);
+    file = NULL;
+
+    char* num_playlists_str = NULL;
+    char* num_songs_str = NULL;
+
+    asprintf(&num_playlists_str, "%d", num_playlists);
+    asprintf(&buffer, T2_PLAYLISTS_RESPONSE, num_playlists_str);
+    free(num_playlists_str);
+    num_playlists_str = NULL;
+
+    buffer_length = strlen(buffer);
+    remaining_space = 256 - buffer_length - 1;
+    
+    for (int i = 0; i < num_playlists; i++) {
+        int playlist_length = strlen(playlists[i].name);
+        if (playlist_length <= remaining_space) {
+            
+            asprintf(&num_songs_str, "#%d#", playlists[i].num_songs);
+            buffer = realloc(buffer, buffer_length + playlist_length + strlen(num_songs_str) + 1);
+            buffer[buffer_length + playlist_length] = '\0';
+            strcat(buffer + buffer_length, num_songs_str);
+
+            buffer_length += strlen(num_songs_str);
+            remaining_space -= strlen(num_songs_str);
+
+            free(num_songs_str);
+            
+            buffer = realloc(buffer, buffer_length + playlist_length + 1);
+            buffer[buffer_length + playlist_length] = '\0';
+            strcpy(buffer + buffer_length, playlists[i].name);
+
+            buffer_length += playlist_length;
+            remaining_space -= playlist_length;
+
+            // Add songs to playlist
+            for (int j = 0; j < playlists[i].num_songs; j++) {
+                int song_length = strlen(playlists[i].songs[j]);
+                if (song_length <= remaining_space) {
+                    
+                    buffer = realloc(buffer, buffer_length + 2);
+                    buffer[buffer_length + 1] = '\0';
+                    buffer[buffer_length] = '&';
+                    buffer_length++;
+                    remaining_space -= 1;
+
+                    buffer = realloc(buffer, buffer_length + song_length + 1);
+                    buffer[buffer_length + song_length] = '\0';
+                    strcpy(buffer + buffer_length, playlists[i].songs[j]);
+
+                    buffer_length += song_length;               
+                    remaining_space -= song_length; 
+                } else {
+                    // Not enough space -> send the current buffer
+                    print("\n\n3\n", &terminal);
+                    pthread_mutex_lock(&socket_mu);
+                    buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
+                    pthread_mutex_unlock(&socket_mu);
+
+                    // Reset the buffer for the next iteration
+                    asprintf(&num_playlists_str, "%d", num_playlists);
+                    asprintf(&buffer, T2_PLAYLISTS_RESPONSE, num_playlists_str);
+                    free(num_playlists_str);
+                    num_playlists_str = NULL;
+
+                    buffer_length = strlen(buffer);
+                    remaining_space = 256 - buffer_length - 1;
+
+                    // Process the playlist again
+                    i -= 1;
+                    // Process the song again
+                    j = 0;
+                    break;
+                }
+            }
+        } else {
+            // Not enough space -> send the current buffer
+            pthread_mutex_lock(&socket_mu);
+            buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
+            pthread_mutex_unlock(&socket_mu);
+
+            // Reset the buffer for the next iteration
+            asprintf(&num_playlists_str, "%d", num_playlists);
+            asprintf(&buffer, T2_PLAYLISTS_RESPONSE, num_playlists_str);
+            free(num_playlists_str);
+            num_playlists_str = NULL;
+
+            buffer_length = strlen(buffer);
+            remaining_space = 256 - buffer_length - 1;
+
+            // Process the playlist again
+            i -= 1;
+        }   
+    }
+    pthread_mutex_lock(&socket_mu);
+    buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
+    pthread_mutex_unlock(&socket_mu);
+}
+
+/********************************************************************
+ *
+ * @Purpose: Thread to handle the sending of a file to a Bowman user.
+ *           This function calculates the MD5 checksum, assigns a unique ID,
+ *           and sends the file data in frames along with relevant information.
+ * @Parameters: arg - A pointer to a `Send` struct containing information about the file transfer.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void* sendFile(void* arg) {
     Send* send = (Send*) arg;
     int fd_file, size = 0, sent = 0;
@@ -132,6 +324,17 @@ void* sendFile(void* arg) {
     return NULL;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Handle the download of a single song for a user.
+ *           It checks if the requested song exists and initiates
+ *           a separate thread to send the file.
+ * @Parameters: song - The name of the song or list requested for download.
+ *              user_pos - Position in the array of users. Identifies the requesting user.
+ *              isList - An indicator (0 or 1) specifying whether the request is for a list.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void downloadSong(char* song, int user_pos, int isList) {
     char* buffer, *file = NULL;
     int num_songs = 0, found = 0;
@@ -203,6 +406,16 @@ void downloadSong(char* song, int user_pos, int isList) {
     write(poole2mono[1], send->name, strlen(send->name) + 1);
 }
 
+/********************************************************************
+ *
+ * @Purpose: Handle the download of a playlist.
+ *           It checks if the requested playlist exists and initiates
+ *           the download of each song in the playlist.
+ * @Parameters: list - The name of the playlist requested for download.
+ *              user_pos - Position in the array of users. Identifies the requesting user.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void downloadList(char* list, int user_pos) {
     char* buffer, *file = NULL;
     int num_playlists = 0, num_songs = 0, found = 0;
@@ -303,8 +516,6 @@ void checkDownload(char* header, char* id, char* username) {
 int bowmanHandler(int sock, int user_pos) {
     Frame frame;
     char* buffer = NULL;
-    int buffer_length = 0;
-    int remaining_space = 0;
 
     pthread_mutex_lock(&socket_mu);
     frame = readFrame(sock);
@@ -333,179 +544,10 @@ int bowmanHandler(int sock, int user_pos) {
     }
     else if (frame.type == '2') {
         if (strcmp(frame.header, "LIST_SONGS") == 0) {
-            asprintf(&buffer, "\n%sNew request - %s requires the list of songs.\n%sSending song list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
-            print(buffer, &terminal);
-            free(buffer);
-            buffer = NULL;
-
-            // Get number of songs and songs
-            int num_songs = 0;
-            char* file = NULL;
-            asprintf(&file, "%s/songs.txt", config.path);
-            char** songs = readSongs(file, &num_songs);
-            free(file);
-            file = NULL;
-
-            char* num_songs_str = NULL;
-
-            asprintf(&num_songs_str, "%d#", num_songs);
-            asprintf(&buffer, T2_SONGS_RESPONSE, num_songs_str);
-            free(num_songs_str);
-            num_songs_str = NULL;
-
-            buffer_length = strlen(buffer);
-            remaining_space = 256 - buffer_length - 1;
-
-            for (int i = 0; i < num_songs; i++) {
-                int song_length = strlen(songs[i]);
-                
-                if (song_length <= remaining_space) {
-                    if (i != 0) {
-                        buffer = realloc(buffer, buffer_length + 2);
-                        //buffer[buffer_length + 1] = '\0';
-                        buffer[buffer_length] = '&';
-                        buffer_length++;
-                        remaining_space -= 1;
-                    }
-                    buffer = realloc(buffer, buffer_length + song_length + 1);
-                    buffer[buffer_length + song_length] = '\0';
-                    strcpy(buffer + buffer_length, songs[i]);
-
-                    buffer_length += song_length;               
-                    remaining_space -= song_length; 
-                } else {
-                    // Not enough space -> send the current buffer
-                    pthread_mutex_lock(&socket_mu);
-                    buffer = sendFrame(buffer, sock, strlen(buffer));
-                    pthread_mutex_unlock(&socket_mu);
-
-                    // Reset the buffer for the next iteration
-                    asprintf(&num_songs_str, "%d#", num_songs);
-                    asprintf(&buffer, T2_SONGS_RESPONSE, num_songs_str);
-                    free(num_songs_str);
-                    num_songs_str = NULL;
-                    buffer_length = strlen(buffer);
-                    remaining_space = 256 - buffer_length - 1;
-
-                    // Process the song again
-                    i--;
-                }
-            }
-            // Enough space -> send the current buffer
-            pthread_mutex_lock(&socket_mu);
-            buffer = sendFrame(buffer, sock, strlen(buffer));
-            pthread_mutex_unlock(&socket_mu);
-            buffer_length = 0;
-            remaining_space = 0;
+            listSongs(user_pos);
         }
         else if (strcmp(frame.header, "LIST_PLAYLISTS") == 0) {
-            asprintf(&buffer, "\n%sNew request - %s requires the list of playlists.\n%sSending playlist list to %s\n", C_GREEN, users[user_pos], C_RESET, users[user_pos]);
-            print(buffer, &terminal);
-            free(buffer);
-            buffer = NULL;
-
-            // Get number of playlists and songs
-            int num_playlists = 0;
-            char* file;
-            asprintf(&file, "%s/playlists.txt", config.path); 
-            Playlist* playlists = readPlaylists(file, &num_playlists);
-            free(file);
-            file = NULL;
-
-            char* num_playlists_str = NULL;
-            char* num_songs_str = NULL;
-        
-            asprintf(&num_playlists_str, "%d", num_playlists);
-            asprintf(&buffer, T2_PLAYLISTS_RESPONSE, num_playlists_str);
-            free(num_playlists_str);
-            num_playlists_str = NULL;
-
-            buffer_length = strlen(buffer);
-            remaining_space = 256 - buffer_length - 1;
-            
-            for (int i = 0; i < num_playlists; i++) {
-                int playlist_length = strlen(playlists[i].name);
-                if (playlist_length <= remaining_space) {
-                    
-                    asprintf(&num_songs_str, "#%d#", playlists[i].num_songs);
-                    buffer = realloc(buffer, buffer_length + playlist_length + strlen(num_songs_str) + 1);
-                    buffer[buffer_length + playlist_length] = '\0';
-                    strcat(buffer + buffer_length, num_songs_str);
-
-                    buffer_length += strlen(num_songs_str);
-                    remaining_space -= strlen(num_songs_str);
-
-                    free(num_songs_str);
-                    
-                    buffer = realloc(buffer, buffer_length + playlist_length + 1);
-                    buffer[buffer_length + playlist_length] = '\0';
-                    strcpy(buffer + buffer_length, playlists[i].name);
-
-                    buffer_length += playlist_length;
-                    remaining_space -= playlist_length;
-
-                    // Add songs to playlist
-                    for (int j = 0; j < playlists[i].num_songs; j++) {
-                        int song_length = strlen(playlists[i].songs[j]);
-                        if (song_length <= remaining_space) {
-                            
-                            buffer = realloc(buffer, buffer_length + 2);
-                            buffer[buffer_length + 1] = '\0';
-                            buffer[buffer_length] = '&';
-                            buffer_length++;
-                            remaining_space -= 1;
-
-                            buffer = realloc(buffer, buffer_length + song_length + 1);
-                            buffer[buffer_length + song_length] = '\0';
-                            strcpy(buffer + buffer_length, playlists[i].songs[j]);
-
-                            buffer_length += song_length;               
-                            remaining_space -= song_length; 
-                        } else {
-                            // Not enough space -> send the current buffer
-                            print("\n\n3\n", &terminal);
-                            pthread_mutex_lock(&socket_mu);
-                            buffer = sendFrame(buffer, sock, strlen(buffer));
-                            pthread_mutex_unlock(&socket_mu);
-
-                            // Reset the buffer for the next iteration
-                            asprintf(&num_playlists_str, "%d", num_playlists);
-                            asprintf(&buffer, T2_PLAYLISTS_RESPONSE, num_playlists_str);
-                            free(num_playlists_str);
-                            num_playlists_str = NULL;
-
-                            buffer_length = strlen(buffer);
-                            remaining_space = 256 - buffer_length - 1;
-
-                            // Process the playlist again
-                            i -= 1;
-                            // Process the song again
-                            j = 0;
-                            break;
-                        }
-                    }
-                } else {
-                    // Not enough space -> send the current buffer
-                    pthread_mutex_lock(&socket_mu);
-                    buffer = sendFrame(buffer, sock, strlen(buffer));
-                    pthread_mutex_unlock(&socket_mu);
-
-                    // Reset the buffer for the next iteration
-                    asprintf(&num_playlists_str, "%d", num_playlists);
-                    asprintf(&buffer, T2_PLAYLISTS_RESPONSE, num_playlists_str);
-                    free(num_playlists_str);
-                    num_playlists_str = NULL;
-
-                    buffer_length = strlen(buffer);
-                    remaining_space = 256 - buffer_length - 1;
-
-                    // Process the playlist again
-                    i -= 1;
-                }   
-            }
-            pthread_mutex_lock(&socket_mu);
-            buffer = sendFrame(buffer, sock, strlen(buffer));
-            pthread_mutex_unlock(&socket_mu);
+            listPlaylists(user_pos);
         }
     }
     else if (frame.type == '3' && strcmp(frame.header, "DOWNLOAD_SONG") == 0) {
@@ -560,6 +602,7 @@ fd_set buildSelect() {
 
     return readfds;
 }
+
 /********************************************************************
  *
  * @Purpose: Accepts incoming connections from Bowman users, managing users 
@@ -623,6 +666,15 @@ static int listenConnections() {
     return 0;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Clean up and terminate connections in the logout process.
+ *           Join threads, close Discovery and Bowman connections,
+ *           and perform necessary cleanup.
+ * @Parameters: ---.
+ * @Return: ---.
+ *
+ *******************************************************************/
 void logout() { // closear download sock
     char* buffer = NULL;
     Frame frame;
@@ -718,6 +770,13 @@ void logout() { // closear download sock
     close(poole2mono[1]);
 }
 
+/********************************************************************
+ *
+ * @Purpose: Reads sent data from a pipe and updates statistics from stats.txt.
+ * @Parameters: ---.
+ * @Return: ---.
+ *
+ *******************************************************************/
 void monolith() {
     char *buffer = NULL, *aux = NULL;
     int i = 0, found = 0, num = 0;
@@ -825,6 +884,13 @@ void monolith() {
     }
 }
 
+/********************************************************************
+ *
+ * @Purpose: Handles the SIGINT signal for aborting the program.
+ * @Parameters: sigsum - The signal number.
+ * @Return: ---.
+ *
+ *******************************************************************/
 void sig_handler(int sigsum) {
     switch(sigsum) {
         case SIGINT:
@@ -842,6 +908,7 @@ void sig_handler(int sigsum) {
             break;
     }
 }
+
 /********************************************************************
  *
  * @Purpose: Initializes the Poole server, connecting to the Discovery server 
@@ -883,28 +950,26 @@ int main(int argc, char *argv[]) {
 
         return -1;
     }
-
         switch (fork()){
-        case -1:
-            asprintf(&buffer, "%sError creating the process\n%s", C_RED, C_RESET);
-            print(buffer, &terminal);
-            free(buffer);
-            return -1;
-        case 0:
-            signal(SIGINT, SIG_IGN);
-            free(config.server);
-            free(config.discovery_ip);
-            free(config.user_ip);
-            free(config.path);
-            close(poole2mono[1]);
-            monolith();
-            break;
-        default:
-            signal(SIGINT, sig_handler);
-            close(poole2mono[0]);
-            break;
-    }
-
+            case -1:
+                asprintf(&buffer, "%sError creating the process\n%s", C_RED, C_RESET);
+                print(buffer, &terminal);
+                free(buffer);
+                return -1;
+            case 0:
+                signal(SIGINT, SIG_IGN);
+                free(config.server);
+                free(config.discovery_ip);
+                free(config.user_ip);
+                free(config.path);
+                close(poole2mono[1]);
+                monolith();
+                break;
+            default:
+                signal(SIGINT, sig_handler);
+                close(poole2mono[0]);
+                break;
+        }
 
     server = configServer(config.discovery_ip, config.discovery_port);
 

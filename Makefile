@@ -18,13 +18,13 @@ poole.o: poole.c
 discovery.o: discovery.c
 	gcc -g -c -Wall -Wextra discovery.c -o discovery.o
 
-bowman: bowman.o functions.o test.o configs.o connections.o
+bowman: bowman.o functions.o configs.o connections.o
 	gcc -Wall -Wextra -pthread bowman.o functions.o configs.o connections.o -o bowman
 
-poole: poole.o functions.o test.o configs.o connections.o
+poole: poole.o functions.o configs.o connections.o
 	gcc -Wall -Wextra -pthread poole.o functions.o configs.o connections.o -o poole
 
-discovery: discovery.o functions.o test.o configs.o connections.o
+discovery: discovery.o functions.o configs.o connections.o
 	gcc -Wall -Wextra discovery.o functions.o configs.o connections.o -o discovery 
 
 demo: bowman poole discovery

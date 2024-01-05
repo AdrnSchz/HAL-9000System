@@ -81,14 +81,22 @@ Server_conf readConfigPol(char* file);
 
 /********************************************************************
  *
- * @Purpose: Reads the configuration of the songs.
- * @Parameters: file - The path to the configuration file.
-  *          
- * @Return: The Server_conf structure with the configuration file data.
+ * @Purpose: Read songs from a specified file and returns an array of strings.
+ * @Parameters: file - Path to the file containing song names.
+ *              num_songs - Pointer to store the number of songs read.
+ * @Return: Array of song names.
  *
  ********************************************************************/
 char **readSongs(char* file, int *num_songs);
 
+/********************************************************************
+ *
+ * @Purpose: Read playlists from a specified file and return an array of Playlist structures.
+ * @Parameters: file - Path to the file containing playlist information.
+ *              num_playlists - Pointer to store the number of playlists read.
+ * @Return: Array of Playlist structures.
+ *
+ ********************************************************************/
 Playlist* readPlaylists(char* file, int *num_playlists);
 
 #endif
