@@ -488,6 +488,10 @@ void listPlaylists() {
 void downloadCommand(char* song) {
     char* buffer = NULL;
 
+    asprintf(&buffer, "%s%sDownload started!\n%s", C_RESET, C_GREEN, C_RESET);
+    print(buffer, &terminal);
+    free(buffer);
+
     if (song[strlen(song) - 4] == '.') {
         asprintf(&buffer, T3_DOWNLOAD_SONG, song);
     } 
@@ -506,9 +510,15 @@ void downloadCommand(char* song) {
  ********************************************************************/
 void checkDownloads() {
     char* buffer = NULL;
-    print("Start downloading:\n", &terminal);
+
+    if (num_files == 0) {
+        asprintf(&buffer, "%s%sYou have no ongoing or finished downloads\n%s", C_RESET, C_GREEN, C_RESET);
+        print(buffer, &terminal);
+        free(buffer);
+    }
+    
     for (int i = 0; i < num_files; i++) {
-        asprintf(&buffer, "%s\n", files[i].file_name);
+        asprintf(&buffer, "%s", files[i].file_name);
         print(buffer, &terminal);
         free(buffer);
         
@@ -537,8 +547,8 @@ void checkDownloads() {
         }
 
         print("%|\n", &terminal);
+        free(buffer);
     }
-    free(buffer);
 }
 
 /********************************************************************
@@ -792,7 +802,7 @@ int main(int argc, char *argv[]) {
                         break;
                     case 5:
                         // ==================================================
-                        // CHECK DOWNLOAD
+                        // CHECK DOWNLOADS
                         // ==================================================
                         checkDownloads();
                         free(buffer);
@@ -800,7 +810,7 @@ int main(int argc, char *argv[]) {
                         break;
                     case 6:
                         // ==================================================
-                        // CLEAR DOWNLOAD
+                        // CLEAR DOWNLOADS
                         // ==================================================
                         clearDownloads();
                         free(buffer);
