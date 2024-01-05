@@ -68,7 +68,7 @@ typedef struct {
 } File;
 
 /**
- * Structure for storing data to be send.
+ * Structure for storing data to be send to the threads in poole.
 */
 typedef struct {
     char* name;
@@ -76,11 +76,17 @@ typedef struct {
     int thread_pos;
 } Send;
 
+/**
+ * Structure for storing data to be send through messsage queues.
+*/
 typedef struct {
     long mtype;
     char data[244];
 } Msg;
 
+/**
+ * Structure the id of a song to be send and its name.
+*/
 typedef struct {
     int id;
     char* name;

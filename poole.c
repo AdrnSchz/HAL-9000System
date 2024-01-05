@@ -486,6 +486,15 @@ void downloadList(char* list, int user_pos) {
     file = NULL;
 }
 
+/********************************************************************
+ *
+ * @Purpose: It finds the id received and check whether the download was successful.
+ * @Parameters: header - The header of the frame received
+ *              id - The id received.
+ *              username - The username of the user who requested the download.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void checkDownload(char* header, char* id, char* username) {
     char* buffer = NULL;
 
