@@ -126,5 +126,13 @@ char* getString(int from, char until, char* string);
  ********************************************************************/
 char* getSongName(char* string);
 
+/********************************************************************
+ *
+ * @Purpose: Generate MD5 checksum for a given file using a child process.
+ * @Parameters: file - Path to the file for which MD5 checksum is generated.
+ *              md5 - Pointer to store the generated MD5 checksum.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void getMd5(char* file, char** md5);
 #endif

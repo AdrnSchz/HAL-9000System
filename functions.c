@@ -232,7 +232,6 @@ char* getSongName(char* string) {
     return buffer;
 }
 
-
 void getMd5(char* file, char** md5) {
     int pipefd[2], len = strlen(file);
     char path[len + 1];

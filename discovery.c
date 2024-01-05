@@ -135,6 +135,15 @@ int connectionHandler(int sock) {
     return 0;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Build the fd_set for the select system call, including Poole, Bowman,
+ *           and all connected clients.
+ * @Parameters: poole_sock - Socket descriptor for Poole connection.
+ *              bowman_sock - Socket descriptor for Bowman connection.
+ * @Return: readfds containing the set of file descriptors to be monitored.
+ *
+ ********************************************************************/
 fd_set buildSelect(int poole_sock, int bowman_sock) {
     fd_set readfds;
     
@@ -146,8 +155,8 @@ fd_set buildSelect(int poole_sock, int bowman_sock) {
     }
 
     return readfds;
-
 }
+
 /********************************************************************
  *
  * @Purpose: Initializes and runs the Discovery server, setting up connections 

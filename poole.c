@@ -26,6 +26,16 @@ pthread_t* threads = NULL;
 int* ids;
 pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER, globals = PTHREAD_MUTEX_INITIALIZER, socket_mu = PTHREAD_MUTEX_INITIALIZER;
 
+
+/********************************************************************
+ *
+ * @Purpose: Thread to handle the sending of a file to a Bowman user.
+ *           This function calculates the MD5 checksum, assigns a unique ID,
+ *           and sends the file data in frames along with relevant information.
+ * @Parameters: arg - A pointer to a `Send` struct containing information about the file transfer.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void* sendFile(void* arg) {
     Send* send = (Send*) arg;
     int fd_file, size = 0, sent = 0;
@@ -140,6 +150,17 @@ void* sendFile(void* arg) {
     return NULL;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Handle the download of a single song for a user.
+ *           It checks if the requested song exists and initiates
+ *           a separate thread to send the file.
+ * @Parameters: song - The name of the song or list requested for download.
+ *              user_pos - Position in the array of users. Identifies the requesting user.
+ *              isList - An indicator (0 or 1) specifying whether the request is for a list.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void downloadSong(char* song, int user_pos, int isList) {
     char* buffer, *file = NULL;
     int num_songs = 0, found = 0;
@@ -211,6 +232,16 @@ void downloadSong(char* song, int user_pos, int isList) {
     write(poole2mono[1], send->name, strlen(send->name) + 1);
 }
 
+/********************************************************************
+ *
+ * @Purpose: Handle the download of a playlist.
+ *           It checks if the requested playlist exists and initiates
+ *           the download of each song in the playlist.
+ * @Parameters: list - The name of the playlist requested for download.
+ *              user_pos - Position in the array of users. Identifies the requesting user.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void downloadList(char* list, int user_pos) {
     char* buffer, *file = NULL;
     int num_playlists = 0, num_songs = 0, found = 0;
@@ -280,6 +311,7 @@ void downloadList(char* list, int user_pos) {
     free(file);
     file = NULL;
 }
+
 /********************************************************************
  *
  * @Purpose: Handles interactions with connected Bowman users, processing 
@@ -609,6 +641,15 @@ static int listenConnections() {
     return 0;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Clean up and terminate connections in the logout process.
+ *           Join threads, close Discovery and Bowman connections,
+ *           and perform necessary cleanup.
+ * @Parameters: ---.
+ * @Return: ---.
+ *
+ *******************************************************************/
 void logout() { // closear download sock
     char* buffer = NULL;
     Frame frame;
@@ -701,6 +742,13 @@ void logout() { // closear download sock
     close(poole2mono[1]);
 }
 
+/********************************************************************
+ *
+ * @Purpose: Reads sent data from a pipe and updates statistics from stats.txt.
+ * @Parameters: ---.
+ * @Return: ---.
+ *
+ *******************************************************************/
 void monolith() {
     char *buffer = NULL, *aux = NULL;
     int i = 0, found = 0, num = 0;
@@ -787,6 +835,13 @@ void monolith() {
     }
 }
 
+/********************************************************************
+ *
+ * @Purpose: Handles the SIGINT signal for aborting the program.
+ * @Parameters: sigsum - The signal number.
+ * @Return: ---.
+ *
+ *******************************************************************/
 void sig_handler(int sigsum) {
     switch(sigsum) {
         case SIGINT:
@@ -804,6 +859,7 @@ void sig_handler(int sigsum) {
             break;
     }
 }
+
 /********************************************************************
  *
  * @Purpose: Initializes the Poole server, connecting to the Discovery server 

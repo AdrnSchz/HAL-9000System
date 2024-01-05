@@ -157,5 +157,13 @@ Frame freeFrame(Frame frame);
  ********************************************************************/
 int getFileData(char* data, File* file);
 
+/********************************************************************
+ *
+ * @Purpose: Configure a message queue with the specified key and identifier.
+ * @Parameters: key - Pointer to store the generated key using ftok.
+ *              id - Pointer to store the message queue identifier.
+ * @Return: 0 on success, -1 on error.
+ *
+ ********************************************************************/
 int configQueue(key_t* key, int* id);
 #endif

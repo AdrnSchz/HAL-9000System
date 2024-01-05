@@ -191,7 +191,7 @@ Frame getFrameLoop(int sock) {
  * @Purpose: Connect and ask discovery for a server and connect to the given server
  * @Parameters: poole - sockaddr_in with the configuration to connect to the poole server.
  *              discovery - sockaddr_in with the configuration to connect to the discovery server.
- * @Return: ---
+ * @Return: ---.
  *
  ********************************************************************/
 void connection(struct sockaddr_in* poole, struct sockaddr_in discovery, int select) {
@@ -217,7 +217,6 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery, int sel
         }
         return;
     }
-
 
     asprintf(&buffer, T1_BOWMAN, config.user);
     buffer = sendFrame(buffer, discovery_sock, strlen(buffer));
@@ -303,7 +302,8 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery, int sel
 /********************************************************************
  *
  * @Purpose: Logout from the poole
- * @Return: ---
+ * @Parameters: ---.
+ * @Return: ---.
  *
  ********************************************************************/
 void logout() {
@@ -348,6 +348,143 @@ void logout() {
     }
 }
 
+/********************************************************************
+*
+* @Purpose: Lists the available songs on the Poole server.
+* @Parameters: ---.
+* @Return: ---.
+*
+*******************************************************************/
+void listSongs() {
+    int totalSongs = 0, num_songs = 0, already_printed = 0;
+    char *buffer = NULL, *num_songs_str = NULL, *song = NULL;
+    Frame frame;
+    
+    asprintf(&buffer, T2_SONGS);
+    buffer = sendFrame(buffer, poole_sock, strlen(buffer));
+
+    while (1) {
+        // frame = readFrame(poole_sock);
+        frame = getFrameLoop(poole_sock);
+        num_songs_str = strtok(frame.data, "#");
+
+        if (already_printed == 0) {
+            asprintf(&buffer, "%sThere are %s songs available for download:\n%s", C_GREEN, num_songs_str, C_RESET);
+            print(buffer, &terminal);
+            free(buffer);
+            buffer = NULL;        
+            already_printed = 1;
+        }
+
+        song = strtok(NULL, "&"); // NULL to continue from last strtok
+        num_songs = atoi(num_songs_str);
+
+        for (int i = 0; i < num_songs; i++) {
+            if (song != NULL) {
+                totalSongs += 1;
+                asprintf(&buffer, "%d. %s\n", totalSongs, song);
+                print(buffer, &terminal);
+                free(buffer);
+                buffer = NULL;
+
+                song = strtok(NULL, "&"); // NULL to continue from last strtok
+            }
+        }
+        if (totalSongs >= num_songs) {
+            break;
+        }
+    }
+    totalSongs = 0;
+    frame = freeFrame(frame);
+    free(buffer);
+}
+
+/********************************************************************
+*
+* @Purpose: Lists the available playlists on the Poole server.
+* @Parameters: ---.
+* @Return: ---.
+*
+*******************************************************************/
+void listPlaylists() {
+    int totalSongs = 0, totalPlaylists = 0, num_songs = 0, already_printed = 0;
+    char *buffer = NULL, *num_playlists_str, *num_songs_str = NULL, *song = NULL, *playlist_name = NULL, abc = 'a';
+    Frame frame;
+    size_t total_bytes = 0;
+
+    asprintf(&buffer, T2_PLAYLISTS);
+    buffer = sendFrame(buffer, poole_sock, strlen(buffer));
+
+    //frame = readFrame(poole_sock);
+    frame = getFrameLoop(poole_sock);
+
+    total_bytes = 0;
+    size_t data_len = strlen(frame.data);
+    num_playlists_str = strtok(frame.data, "#");
+    total_bytes += strlen(num_playlists_str) + 1;
+
+    if (already_printed == 0) {
+        asprintf(&buffer, "%sThere are %s playlists available for download:\n%s", C_GREEN, num_playlists_str, C_RESET);
+        print(buffer, &terminal);
+        free(buffer);
+        buffer = NULL;
+        already_printed = 1;
+    }
+    
+    
+    int num_playlists = atoi(num_playlists_str);
+    
+    // Iterate through playlists
+    for (int i = 0; i < num_playlists; i++) {
+        totalSongs = 0;
+        totalPlaylists++;
+        nextFrame:
+        num_songs_str = strtok(NULL, "#");
+        total_bytes += strlen(num_songs_str) + 1;
+        num_songs = atoi(num_songs_str);
+        playlist_name = strtok(NULL, "&");
+        total_bytes += strlen(playlist_name) + 1;
+
+        asprintf(&buffer, "%d. %s\n", i + 1, playlist_name);
+        print(buffer, &terminal);
+        free(buffer);
+        buffer = NULL;
+
+        for (int j = totalSongs; j < num_songs; j++) {
+            totalSongs++;
+            song = strtok(NULL, "#&\0");
+            total_bytes += strlen(song) + 1;
+            asprintf(&buffer, "\t%c. %s\n", abc, song);
+            print(buffer, &terminal);
+            free(buffer);
+            buffer = NULL;
+            abc++;
+
+            if (totalSongs < num_songs && (total_bytes == data_len + 1)) {
+                //frame = readFrame(poole_sock);
+                frame = getFrameLoop(poole_sock);
+                num_playlists_str = strtok(frame.data, "#");
+                total_bytes += strlen(num_playlists_str) + 1;
+                goto nextFrame;
+            } 
+            if (total_bytes == strlen(frame.data) + 1) {
+                break;
+            }
+        }
+        abc = 'a';
+        totalSongs = 0;
+    }
+    totalPlaylists = 0;
+    frame = freeFrame(frame);
+}
+
+/********************************************************************
+ *
+ * @Purpose: Sends a download command to the Poole server for a given song.
+ * @Parameters: song - The name of the song to download.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void downloadCommand(char* song) {
     char* buffer = NULL;
 
@@ -360,7 +497,13 @@ void downloadCommand(char* song) {
     buffer = sendFrame(buffer, poole_sock, strlen(buffer));
 }
 
-
+/********************************************************************
+ *
+ * @Purpose: Checks the status of ongoing downloads and displays progress.
+ * @Parameters: ---.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void checkDownloads() {
     char* buffer = NULL;
     print("Start downloading:\n", &terminal);
@@ -398,6 +541,13 @@ void checkDownloads() {
     free(buffer);
 }
 
+/********************************************************************
+ *
+ * @Purpose: Clears completed downloads from the file list.
+ * @Parameters: ---.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void clearDownloads() {
     int j = 0;
 
@@ -422,7 +572,13 @@ void clearDownloads() {
     checkDownloads();
 }
 
-
+/********************************************************************
+ *
+ * @Purpose: Checks for incoming frames from the Poole server and handles them.
+ * @Parameters: ---.
+ * @Return: 0 if successful, 6 if the server initiated shutdown.
+ *
+ ********************************************************************/
 int checkFrame() {
     Frame frame;
     char* buffer = NULL;
@@ -463,6 +619,7 @@ int checkFrame() {
     
     return 0;
 }
+
 /********************************************************************
 *
 * @Purpose: Handles the SIGINT signal for aborting the program.
@@ -500,14 +657,11 @@ void sig_handler(int sigsum) {
  *
  ********************************************************************/
 int main(int argc, char *argv[]) {
-    char *buffer = NULL, *num_songs_str = NULL, *num_playlists_str = NULL, *song = NULL, *playlist_name = NULL;
-    int alreadyPrinted = 0, totalSongs = 0, totalPlaylists = 0, num_songs = 0;
+    char *buffer = NULL;
     key_t key;
-    size_t total_bytes = 0;
     thread = 0;
 
     struct sockaddr_in discovery, poole;
-    Frame frame;
     fd_set readfds;
     signal(SIGINT, sig_handler);
 
@@ -591,44 +745,7 @@ int main(int argc, char *argv[]) {
 
                             break;
                         }
-                        
-                        asprintf(&buffer, T2_SONGS);
-                        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
-                        alreadyPrinted = 0;
-
-                        while (1) {
-                            // frame = readFrame(poole_sock);
-                            frame = getFrameLoop(poole_sock);
-                            num_songs_str = strtok(frame.data, "#");
-
-                            if (alreadyPrinted == 0) {
-                                asprintf(&buffer, "%sThere are %s songs available for download:\n%s", C_GREEN, num_songs_str, C_RESET);
-                                print(buffer, &terminal);
-                                free(buffer);
-                                buffer = NULL;
-                                alreadyPrinted = 1;
-                            }
-
-                            song = strtok(NULL, "&"); // NULL to continue from last strtok
-                            num_songs = atoi(num_songs_str);
-
-                            for (int i = 0; i < num_songs; i++) {
-                                if (song != NULL) {
-                                    totalSongs += 1;
-                                    asprintf(&buffer, "%d. %s\n", totalSongs, song);
-                                    print(buffer, &terminal);
-                                    free(buffer);
-                                    buffer = NULL;
-
-                                    song = strtok(NULL, "&"); // NULL to continue from last strtok
-                                }
-                            }
-                            if (totalSongs >= num_songs) {
-                                break;
-                            }
-                        }
-                        totalSongs = 0;
-                        frame = freeFrame(frame);
+                        listSongs();
                         break;
                     case 3:
                         // ==================================================
@@ -643,67 +760,7 @@ int main(int argc, char *argv[]) {
 
                             break;
                         }
-                        
-                        asprintf(&buffer, T2_PLAYLISTS);
-                        buffer = sendFrame(buffer, poole_sock, strlen(buffer));
-                        alreadyPrinted = 0;
-
-                        //frame = readFrame(poole_sock);
-                        frame = getFrameLoop(poole_sock);
-
-                        total_bytes = 0;
-                        size_t data_len = strlen(frame.data);
-                        num_playlists_str = strtok(frame.data, "#");
-                        total_bytes += strlen(num_playlists_str) + 1;
-
-                        asprintf(&buffer, "%sThere are %s playlists available for download:\n%s", C_GREEN, num_playlists_str, C_RESET);
-                        print(buffer, &terminal);
-                        free(buffer);
-                        buffer = NULL;
-                        alreadyPrinted = 1;
-                        
-                        int num_playlists = atoi(num_playlists_str);
-                        
-                        // Iterate through playlists
-                        for (int i = 0; i < num_playlists; i++) {
-                            totalSongs = 0;
-                            totalPlaylists++;
-                            nextFrame:
-                            num_songs_str = strtok(NULL, "#");
-                            total_bytes += strlen(num_songs_str) + 1;
-                            int num_songs = atoi(num_songs_str);
-                            playlist_name = strtok(NULL, "&");
-                            total_bytes += strlen(playlist_name) + 1;
-
-                            asprintf(&buffer, "%d. %s\n", i + 1, playlist_name);
-                            print(buffer, &terminal);
-                            free(buffer);
-                            buffer = NULL;
-
-                            for (int j = totalSongs; j < num_songs; j++) {
-                                totalSongs++;
-                                song = strtok(NULL, "#&\0");
-                                total_bytes += strlen(song) + 1;
-                                asprintf(&buffer, "\t%d. %s\n", j + 1, song);
-                                print(buffer, &terminal);
-                                free(buffer);
-                                buffer = NULL;
-
-                                if (totalSongs < num_songs && (total_bytes == data_len + 1)) {
-                                    //frame = readFrame(poole_sock);
-                                    frame = getFrameLoop(poole_sock);
-                                    num_playlists_str = strtok(frame.data, "#");
-                                    total_bytes += strlen(num_playlists_str) + 1;
-                                    goto nextFrame;
-                                } 
-                                if (total_bytes == strlen(frame.data) + 1) {
-                                    break;
-                                }
-                            }
-                            totalSongs = 0;
-                        }
-                        totalPlaylists = 0;
-                        frame = freeFrame(frame);
+                        listPlaylists();
                         break;
                     case 4:
                         // ==================================================
