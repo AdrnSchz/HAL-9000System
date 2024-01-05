@@ -98,15 +98,23 @@ void* downloadSong() {
                     pthread_mutex_unlock(&terminal);
 
                     if (md5 == NULL || strcmp(md5, files[i].md5) != 0) {
-                        asprintf(&buffer, "%sError in the integrity of the file\n%s", C_RED, C_RESET);
+                        asprintf(&buffer, "\n%sError in the integrity of %s\n%s", C_RED, files[i].file_name, C_RESET);
                         print(buffer, &terminal);
                         free(buffer);
+                        print(BOLD, &terminal);
+                        print("\n$ ", &terminal);
 
-                        asprintf(&buffer, T5_KO);
+                        asprintf(&buffer, T5_KO, files[i].id);
                         buffer = sendFrame(buffer, poole_sock, strlen(buffer));
                     }
                     else {
-                        asprintf(&buffer, T5_OK);
+                        asprintf(&buffer, "\n%sSuccessfully downloaded %s\n%s", C_GREEN, files[i].file_name, C_RESET);
+                        print(buffer, &terminal);
+                        free(buffer);
+                        print(BOLD, &terminal);
+                        print("\n$ ", &terminal);
+
+                        asprintf(&buffer, T5_OK, files[i].id);
                         buffer = sendFrame(buffer, poole_sock, strlen(buffer));
                     }
                     free(md5);

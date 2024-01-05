@@ -16,6 +16,7 @@
 #include "functions.h"
 #include "configs.h"
 #include "connections.h"
+#include "semaphore_v2.h"
 
 int bow_sock = 0, poole2mono[2];
 Server_conf config;
@@ -23,7 +24,7 @@ int* users_fd;
 int num_users = 0, num_threads = 0;
 char** users;
 pthread_t* threads = NULL;
-int* ids;
+Ids* ids;
 pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER, globals = PTHREAD_MUTEX_INITIALIZER, socket_mu = PTHREAD_MUTEX_INITIALIZER;
 
 void* sendFile(void* arg) {
@@ -59,17 +60,19 @@ void* sendFile(void* arg) {
     pthread_mutex_lock(&globals);
     srand(getpid());
     do {
-        ids[index] = rand() % (999 + 1);
+        ids[index].id = rand() % (999 + 1);
         for (int i = 0; i < num_threads; i++) {
             if (i == index) {
                 continue;
             }
-            if (ids[index] == ids[i]) {
-                ids[index] = -1;
+            if (ids[index].id == ids[i].id) {
+                ids[index].id = -1;
                 break;
             }
         }
-    } while (ids[index] == -1);
+    } while (ids[index].id == -1);
+    ids[index].name = malloc(strlen(send->name) + 1);
+    strcpy(ids[index].name, send->name);
     pthread_mutex_unlock(&globals);
 
     // get size and read file
@@ -90,12 +93,12 @@ void* sendFile(void* arg) {
     lseek(fd_file, 0, SEEK_SET);
 
     // send frame
-    asprintf(&buffer, T4_NEW_FILE, send->name, size, md5, ids[index]);
+    asprintf(&buffer, T4_NEW_FILE, send->name, size, md5, ids[index].id);
     pthread_mutex_lock(&socket_mu);
     buffer = sendFrame(buffer, users_fd[send->fd_pos], strlen(buffer));
     pthread_mutex_unlock(&socket_mu);
 
-    asprintf(&buffer, "%d", ids[index]);
+    asprintf(&buffer, "%d", ids[index].id);
     int space = 256 - 3 - 9 - strlen(buffer) - 1;
     int occupied = 3 + 9 + strlen(buffer) + 1;
     free(buffer);
@@ -108,7 +111,7 @@ void* sendFile(void* arg) {
             space = size - sent;
         }
         read(fd_file, data, space);
-        asprintf(&buffer, T4_DATA, ids[index]);
+        asprintf(&buffer, T4_DATA, ids[index].id);
         buffer = realloc(buffer, 256);
         memcpy(buffer + strlen(buffer), data, space);
         pthread_mutex_lock(&socket_mu);
@@ -117,24 +120,13 @@ void* sendFile(void* arg) {
         sent += space;
         free(buffer);
         buffer = NULL;
-        //usleep(250);
     }
 
-    //mirar de cambiar esto, cuando se descargan muchos a la vez este puede recibir el md5sum de otro
-    pthread_mutex_lock(&socket_mu);
-    Frame frame = readFrame(users_fd[send->fd_pos]);
-    pthread_mutex_unlock(&socket_mu);
-
-    if (frame.type == '5' && strcmp(frame.header, "CHECK_OK") == 0) asprintf(&buffer, "%sSuccessfully sent %s to %s\n%s", C_GREEN, send->name, users[send->fd_pos], C_RESET);
-    else asprintf(&buffer, "%sError sending %s to %s\n%s", C_RED, send->name, users[send->fd_pos], C_RESET);
-    print(buffer, &terminal);
-    free(buffer);
     free(data);
     free(file);
     free(md5);
     free(send->name);
     free(send);
-    frame = freeFrame(frame);
     close (fd_file);
     
     return NULL;
@@ -201,8 +193,8 @@ void downloadSong(char* song, int user_pos, int isList) {
     free(file);
     file = NULL;
     pthread_mutex_lock(&globals);
-    ids = realloc(ids, sizeof(int) * (num_threads + 1));
-    ids[num_threads] = -1;
+    ids = realloc(ids, sizeof(Ids) * (num_threads + 1));
+    ids[num_threads].id = -1;
     send->thread_pos = num_threads;
     num_threads++;
     threads = realloc(threads, sizeof(pthread_t) * (num_threads));
@@ -279,6 +271,24 @@ void downloadList(char* list, int user_pos) {
 
     free(file);
     file = NULL;
+}
+
+void checkDownload(char* header, char* id, char* username) {
+    char* buffer = NULL;
+
+    pthread_mutex_lock(&globals);
+    for (int i = 0; i < num_threads; i++) {
+        if (ids[i].id == atoi(id)) {
+            if (strcmp(header, "CHECK_OK") == 0) asprintf(&buffer, "%sSuccessfully sent %s to %s\n%s", C_GREEN, ids[i].name, username, C_RESET);
+            else asprintf(&buffer, "%sError sending %s to %s\n%s", C_RED, ids[i].name, username, C_RESET);
+            
+            print(buffer, &terminal);
+            free(buffer);
+            buffer = NULL;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&globals);
 }
 /********************************************************************
  *
@@ -506,6 +516,10 @@ int bowmanHandler(int sock, int user_pos) {
         downloadList(frame.data, user_pos);
         frame = freeFrame(frame);
     }
+    else if (frame.type == '5') {
+        checkDownload(frame.header, frame.data, users[user_pos]);
+    }
+    
     else if (frame.type == '6' && strcmp(frame.header, "EXIT") == 0) {
         asprintf(&buffer, T6_OK);
         pthread_mutex_lock(&socket_mu);
@@ -615,10 +629,13 @@ void logout() { // closear download sock
     int disc_sock;
     struct sockaddr_in discovery;
 
-    for (int i = 0; threads != NULL && i < num_threads; i++) {
+    for (int i = 0; i < num_threads; i++) {
         pthread_join(threads[i], NULL);
+        free(ids[i].name);
+        ids[i].name = NULL;
     }
     free(threads);
+    free(ids);
 
     // Close Discovery connection
     discovery = configServer(config.discovery_ip, config.discovery_port);
@@ -704,13 +721,29 @@ void logout() { // closear download sock
 void monolith() {
     char *buffer = NULL, *aux = NULL;
     int i = 0, found = 0, num = 0;
+    
+    //create shared semaphore
+    semaphore* sem = malloc(sizeof(semaphore));
+    key_t key = ftok("poole.c", 11);
 
+    if (key == -1) {
+        asprintf(&buffer, "%sError creating the key\n%s", C_RED, C_RESET);
+        print(buffer, &terminal);
+        free(buffer);
+        return;
+    }
+    SEM_constructor_with_name(sem, key);
+    SEM_init(sem, 1);
+
+    SEM_wait(sem);
     int file_fd = open("stats.txt", O_CREAT | O_RDWR, 0666);
 
     if (file_fd == -1) {
         asprintf(&buffer, "%sError opening stats.txt\n%s", C_RED, C_RESET);
         print(buffer, &terminal);
         free(buffer);
+        SEM_signal(sem);
+        SEM_destructor(sem);
         return;
     }
 
@@ -718,6 +751,8 @@ void monolith() {
         asprintf(&buffer, "0\n");
         write(file_fd, buffer, strlen(buffer));
     }
+    SEM_signal(sem);
+    
     while (1) {
         i = 0;
         found = 0;
@@ -732,12 +767,14 @@ void monolith() {
                 free(buffer);
                 close(file_fd);
                 close(poole2mono[0]);
+                SEM_destructor(sem);
                 exit(0);
             }
             i++;
         } while (buffer[i - 1] != '\0');
         i--;
 
+        SEM_wait(sem);
         lseek(file_fd, 0, SEEK_SET);
         aux = readUntil(file_fd, '\n');
         while (found == 0 && aux != NULL) {
@@ -784,6 +821,7 @@ void monolith() {
         asprintf(&aux, "%d\n", num + 1);
         write(file_fd, aux, strlen(aux));
         free(aux);
+        SEM_signal(sem);
     }
 }
 
