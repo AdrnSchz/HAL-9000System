@@ -27,6 +27,13 @@ pthread_t* threads = NULL;
 Ids* ids;
 pthread_mutex_t terminal = PTHREAD_MUTEX_INITIALIZER, globals = PTHREAD_MUTEX_INITIALIZER, socket_mu = PTHREAD_MUTEX_INITIALIZER;
 
+/********************************************************************
+*
+* @Purpose: Sends the stored songs to the client.
+* @Parameters: user_pos - integer containg the index of the list of user containing the client.
+* @Return: ---.
+*
+*******************************************************************/
 void listSongs(int user_pos) {
     char* buffer = NULL;
     int buffer_length = 0, remaining_space = 0;
@@ -97,6 +104,13 @@ void listSongs(int user_pos) {
     remaining_space = 0;
 }
 
+/********************************************************************
+*
+* @Purpose: Sends the stored playlist to the client.
+* @Parameters: user_pos - integer containg the index of the list of user containing the client.
+* @Return: ---.
+*
+*******************************************************************/
 void listPlaylists(int user_pos) {
     char* buffer = NULL;
     int buffer_length = 0, remaining_space = 0;
@@ -601,6 +615,12 @@ int bowmanHandler(int sock, int user_pos) {
     return 0;
 }
 
+/********************************************************************
+*
+* @Purpose: Prepare the select.
+* @Return: the set of file descriptors.
+*
+*******************************************************************/
 fd_set buildSelect() {
     fd_set readfds;
     

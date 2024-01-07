@@ -39,6 +39,14 @@
 #define C_BOLDGREEN "\033[1m\033[32m"
 #define BOLD    "\033[1m"
 
+/********************************************************************
+*
+* @Purpose: Sends the stored songs to the client.
+* @Parameters: str - string to be printed.
+*              terminal - pointer to the mutex responsible of the terminal.
+* @Return: ---.
+*
+*******************************************************************/
 void print(char *str, pthread_mutex_t* terminal);
 /********************************************************************
  *

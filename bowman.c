@@ -61,6 +61,12 @@ int configConnection(struct sockaddr_in* server) {
     return 0;
 }
 
+/********************************************************************
+ *
+ * @Purpose: Thread reading data from files being downloaded through message queue.
+ * @Return: ---.
+ *
+ ********************************************************************/
 void* downloadSong() {
     char* buffer = NULL;
     Msg msg;
@@ -129,6 +135,13 @@ void* downloadSong() {
     return NULL;
 }
 
+/********************************************************************
+*
+* @Purpose: Stores the data of the new file received and creates/open the mp3 file.
+* @Parameters: frame - Frame strucutre containing the information of the new file.
+* @Return: ---.
+*
+*******************************************************************/
 void newFile(Frame frame) {
     File file;
     char* buffer = NULL;
@@ -170,6 +183,13 @@ void newFile(Frame frame) {
     }
 }
 
+/********************************************************************
+*
+* @Purpose: Send the data from a file being downloaded through message queues to the thread.
+* @Parameters: frame - Frame structure containing the information to be sent.
+* @Return: ---.
+*
+*******************************************************************/
 void newData(Frame frame) {
     Msg msg = {0};
     msg.mtype = 1;
