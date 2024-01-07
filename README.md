@@ -17,6 +17,12 @@ This project implements the HAL 9000 System, consisting of a Discovery Server, a
 * configP.dat: Configuration file for the Poole Server.
 * configB.dat: Configuration file for the Bowman Client.
 
+* configP2.dat: Configuration file for the Poole Server.
+* configP3.dat: Configuration file for the Poole Server.
+* configB2.dat: Configuration file for the Bowman Client.
+* configB3.dat: Configuration file for the Bowman Client.
+* configB4.dat: Configuration file for the Bowman Client.
+
 ## Data Organization
 ### floyd Folder: 
 * Contains downloads for floyd Bowman client.
@@ -25,17 +31,16 @@ This project implements the HAL 9000 System, consisting of a Discovery Server, a
 * songs.txt: Information about all songs available on the Poole Server.
 * MP3 files: Actual song files.
 
+#### Other directories correspond to the other Pooles and Bowmans.
+
+
 ## How to Run
-* Compile and run the Discovery Server using discovery_server.c.
-* Compile and run the Poole Server using poole_server.c.
-* Compile and run the Bowman Client using bowman_client.c.
+* make
+* run Discovery Server -> $ discovery configD.dat
+* run Poole -> $ poole configP.dat
+* run Bowman -> $ bowman configP.dat
 
-## Important Note
-Make sure to check and modify the configuration files (configD.dat, configP.dat, and configB.dat) to match the network settings and file paths on your system.
-
-### ERRORS: The connection of multiple Bowmans is not fully functional, and the team is actively working on fixing this issue.
-
-
+This can be done for multiple Pooles and Bowmans with the other configuration files.
 
 
 
