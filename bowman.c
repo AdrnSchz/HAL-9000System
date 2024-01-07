@@ -318,12 +318,14 @@ void logout() {
     char* buffer = NULL;
     Frame frame, frame2;
     struct sockaddr_in discovery;
-    
+
     //joinear threads y acabar download o algo
     if (thread != 0) pthread_join(thread, NULL);
 
     if (msgctl(queue_id, IPC_RMID, NULL) == -1) {
-        print(C_RED + "Error deleting the message queue\n" + C_RESET, &terminal);
+        asprintf(&buffer, "%sError deleting the message queue\n%s", C_RED, C_RESET);
+        print(buffer, &terminal);
+        free(buffer);
     }
 
     asprintf(&buffer, T6, config.user);
