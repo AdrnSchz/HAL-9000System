@@ -445,7 +445,7 @@ void downloadList(char* list, int user_pos) {
     for (int i = 0; i < num_playlists; i++) {
         readNum(fd_file, &num_songs);
         readLine(fd_file, &buffer);
-        
+
         if (strcmp(buffer, list) == 0) {
             found = 1;
             free(buffer);
@@ -458,6 +458,7 @@ void downloadList(char* list, int user_pos) {
             break;
         }
 
+        free(buffer);
         for (int j = 0; j < num_songs; j++) {
             readLine(fd_file, &buffer);
             free(buffer);
