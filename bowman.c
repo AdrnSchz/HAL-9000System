@@ -321,10 +321,24 @@ void logout() {
     //joinear threads y acabar download o algo
     if (thread != 0) pthread_join(thread, NULL);
 
+    if (msgctl(queue_id, IPC_RMID, NULL) == -1) {
+        print(C_RED + "Error deleting the message queue\n" + C_RESET, &terminal);
+    }
+
     asprintf(&buffer, T6, config.user);
     buffer = sendFrame(buffer, poole_sock, strlen(buffer));
     frame = readFrame(poole_sock);
     
+    if (configConnection(&discovery) == -1 || connect(discovery_sock, (struct sockaddr *) &discovery, sizeof(discovery)) < 0) {
+        asprintf(&buffer, "%sError connecting with discovery\n%s", C_RED, C_RESET);
+        print(buffer, &terminal);
+        free(buffer);
+
+        close(poole_sock);
+        close(discovery_sock);
+        return;
+    }
+
     asprintf(&buffer, T6, server_name);
     buffer = sendFrame(buffer, discovery_sock, strlen(buffer));
     frame2 = readFrame(discovery_sock);
@@ -332,9 +346,6 @@ void logout() {
         asprintf(&buffer, "%sThanks for using HAL 9000, see you soon, music lover!\n%s", C_GREEN, C_RESET);                
         print(buffer, &terminal);
         free(buffer);
-
-        close(poole_sock);
-        close(discovery_sock);
     }
     else if ((frame.type == '6' && strcmp(frame.header, "CON_KO") == 0) || (frame2.type == '6' && strcmp(frame2.header, "CON_KO") == 0)) {
         asprintf(&buffer, "%sCould not disconnect from HAL 9000 system\n%s", C_RED, C_RESET);
@@ -348,12 +359,10 @@ void logout() {
         
         sendError(poole_sock);
     }
+    close(poole_sock);
+    close(discovery_sock);
     frame = freeFrame(frame);
     frame2 = freeFrame(frame2);
-
-    if (msgctl(queue_id, IPC_RMID, NULL) == -1) {
-        print("Error deleting the message queue\n", &terminal);
-    }
 }
 
 /********************************************************************
