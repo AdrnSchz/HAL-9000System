@@ -134,9 +134,9 @@ void newFile(Frame frame) {
     char* buffer = NULL;
 
     if (getFileData(frame.data, &file) == 0) {
-        //asprintf(&buffer, "%sDownload started!%s\n", C_GREEN, C_RESET);
-        //print(buffer, &terminal);
-        //free(buffer);
+        asprintf(&buffer, "%sDownload started!%s\n", C_GREEN, C_RESET);
+        print(buffer, &terminal);
+        free(buffer);
         num_files++;
         files = realloc(files, sizeof(File) * (num_files));
         file.data_received = 0;
@@ -507,10 +507,6 @@ void listPlaylists() {
  ********************************************************************/
 void downloadCommand(char* song) {
     char* buffer = NULL;
-
-    asprintf(&buffer, "%s%sDownload started!\n%s", C_RESET, C_GREEN, C_RESET);
-    print(buffer, &terminal);
-    free(buffer);
 
     if (song[strlen(song) - 4] == '.') {
         asprintf(&buffer, T3_DOWNLOAD_SONG, song);
