@@ -317,7 +317,8 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery, int sel
 void logout() {
     char* buffer = NULL;
     Frame frame, frame2;
-
+    struct sockaddr_in discovery;
+    
     //joinear threads y acabar download o algo
     if (thread != 0) pthread_join(thread, NULL);
 
