@@ -147,7 +147,11 @@ void newFile(Frame frame) {
     char* buffer = NULL;
 
     if (getFileData(frame.data, &file) == 0) {
-        asprintf(&buffer, "%sDownload started!%s\n", C_GREEN, C_RESET);
+        asprintf(&buffer, "\n%s%sDownload started!%s\n", C_RESET, C_GREEN, C_RESET);
+        print(buffer, &terminal);
+        free(buffer);
+
+        asprintf(&buffer, "%s%s\n$ ", C_RESET, C_BOLD);
         print(buffer, &terminal);
         free(buffer);
         num_files++;
