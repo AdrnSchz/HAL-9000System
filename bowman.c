@@ -151,7 +151,7 @@ void newFile(Frame frame) {
         print(buffer, &terminal);
         free(buffer);
 
-        asprintf(&buffer, "%s%s\n$ ", C_RESET, C_BOLD);
+        asprintf(&buffer, "%s%s\n$ ", C_RESET, BOLD);
         print(buffer, &terminal);
         free(buffer);
         num_files++;
