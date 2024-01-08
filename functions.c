@@ -46,7 +46,7 @@ void readLine(int source, char** string) {
 
     while (buffer[i] != '\n') {
         i++;
-        buffer = (char*) realloc(buffer, sizeof(char) * (i + 1));
+        buffer = realloc(buffer, sizeof(char) * (i + 1));
         read(source, &buffer[i], sizeof(char));
     }
 
@@ -197,12 +197,12 @@ char* getString(int from, char until, char* string) {
     char* buffer;
     int j = 0;
 
-    buffer = (char*) malloc(sizeof(char));
+    buffer = malloc(sizeof(char));
 
     for (int i = from; string[i] != until; i++) {
         buffer[j] = string[i];
         j++;
-        buffer = (char*) realloc(buffer, sizeof(char) * (j + 1));
+        buffer = realloc(buffer, sizeof(char) * (j + 1));
     }
     buffer[j] = '\0';
     

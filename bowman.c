@@ -297,7 +297,6 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery, int sel
             asprintf(&buffer, "%sReceived wrong frame\n%s", C_RED, C_RESET);
             print(buffer, &terminal);
             free(buffer);
-            sendError(poole_sock);
         }
     }
     else if (frame.type == '1' && strcmp(frame.header, "CON_KO") == 0) {
@@ -314,8 +313,6 @@ void connection(struct sockaddr_in* poole, struct sockaddr_in discovery, int sel
         asprintf(&buffer, "%s%sReceived wrong frame\n%s", C_RESET, C_RED, C_RESET);
         print(buffer, &terminal);
         free(buffer);
-        
-        sendError(discovery_sock);
     }
     frame = freeFrame(frame);
     close(discovery_sock);
@@ -379,8 +376,6 @@ void logout() {
         asprintf(&buffer, "%sReceived wrong frame\n%s", C_RED, C_RESET);
         print(buffer, &terminal);
         free(buffer);
-        
-        sendError(poole_sock);
     }
     close(poole_sock);
     close(discovery_sock);
@@ -546,43 +541,47 @@ void downloadCommand(char* song) {
  ********************************************************************/
 void checkDownloads() {
     char* buffer = NULL;
-
-    if (num_files == 0) {
-        asprintf(&buffer, "%s%sYou have no ongoing or finished downloads\n%s", C_RESET, C_GREEN, C_RESET);
-        print(buffer, &terminal);
-        free(buffer);
-    }
+    int printed = 0;
     
     for (int i = 0; i < num_files; i++) {
-        asprintf(&buffer, "%s", files[i].file_name);
-        print(buffer, &terminal);
-        free(buffer);
-        
-        int percent = (files[i].data_received * 100) / files[i].file_size;
-        char* space;
-        if (percent < 10) {
-            space = "  ";
-        }
-        else if (percent < 100) {
-            space = " ";
-        }
-        else {
-            space = "";
-        }
-        asprintf(&buffer, "\t%d%% %s|", percent, space);
-        print(buffer, &terminal);
-        
-        int num_hashes = (files[i].data_received * 20) / files[i].file_size;  // Each hash represents 5%
-        for (int j = 0; j < num_hashes; j++) {
-            print("=", &terminal);
-        }
+        if (files[i].fd != -1) {
+            asprintf(&buffer, "%s", files[i].file_name);
+            print(buffer, &terminal);
+            free(buffer);
+            
+            int percent = (files[i].data_received * 100) / files[i].file_size;
+            char* space;
+            if (percent < 10) {
+                space = "  ";
+            }
+            else if (percent < 100) {
+                space = " ";
+            }
+            else {
+                space = "";
+            }
+            asprintf(&buffer, "\t%d%% %s|", percent, space);
+            print(buffer, &terminal);
+            
+            int num_hashes = (files[i].data_received * 20) / files[i].file_size;  // Each hash represents 5%
+            for (int j = 0; j < num_hashes; j++) {
+                print("=", &terminal);
+            }
 
-        // Add spaces for the remaining percentage
-        for (int j = num_hashes; j < 20; j++) {
-            print(" ", &terminal);
-        }
+            // Add spaces for the remaining percentage
+            for (int j = num_hashes; j < 20; j++) {
+                print(" ", &terminal);
+            }
 
-        print("%|\n", &terminal);
+            print("%|\n", &terminal);
+            free(buffer);
+            printed++;
+        }
+    }
+
+    if (printed == 0) {
+        asprintf(&buffer, "%s%sYou have no ongoing or finished downloads\n%s", C_RESET, C_GREEN, C_RESET);
+        print(buffer, &terminal);
         free(buffer);
     }
 }
@@ -595,25 +594,11 @@ void checkDownloads() {
  *
  ********************************************************************/
 void clearDownloads() {
-    int j = 0;
-
     for (int i = 0; i < num_files; i++) {
-        if (files[i].fd != 0) {
-            // Only delete fully downloaded files
-            if (files[i].data_received >= files[i].file_size) {
-                close(files[i].fd);
-                files[i].fd = 0;
-                memset(&files[i], 0, sizeof(File));
-            } else {
-                files[j] = files[i];
-                j++;
-            }
+        if (files[i].fd == 0) {
+            files[i].fd = -1;
         }
     }
-
-    files = realloc(files, sizeof(File) * j);
-    num_files = j;
-    downloading = num_files;
     
     checkDownloads();
 }
@@ -681,6 +666,11 @@ void sig_handler(int sigsum) {
             if (poole_sock != 0) {
                 logout();
             }
+            for(int i = 0; i < num_files; i++) {
+                free(files[i].file_name);
+                free(files[i].md5);
+            }
+            free(files);
             free(server_name);
             server_name = NULL;
             free(config.user);
@@ -892,6 +882,11 @@ int main(int argc, char *argv[]) {
     }
 
     end:
+    for(int i = 0; i < num_files; i++) {
+        free(files[i].file_name);
+        free(files[i].md5);
+    }
+    free(files);
     free(server_name);
     server_name = NULL;
     free(config.user);

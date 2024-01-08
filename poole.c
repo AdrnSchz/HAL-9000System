@@ -102,6 +102,11 @@ void listSongs(int user_pos) {
     pthread_mutex_unlock(&socket_mu);
     buffer_length = 0;
     remaining_space = 0;
+    for (int i = 0; i < num_songs; i++) {
+        free(songs[i]);
+        songs[i] = NULL;
+    }
+    free(songs); 
 }
 
 /********************************************************************
@@ -222,6 +227,14 @@ void listPlaylists(int user_pos) {
     pthread_mutex_lock(&socket_mu);
     buffer = sendFrame(buffer, users_fd[user_pos], strlen(buffer));
     pthread_mutex_unlock(&socket_mu);
+    for (int i = 0; i < num_playlists; i++) {
+        free(playlists[i].name);
+        for (int j = 0; j < playlists[i].num_songs; j++) {
+            free(playlists[i].songs[j]);
+        }
+        free(playlists[i].songs);
+    }
+    free(playlists);
 }
 
 /********************************************************************
@@ -381,8 +394,7 @@ void downloadSong(char* song, int user_pos, int isList) {
         readLine(fd_file, &buffer);
         if (strcmp(buffer, song) == 0) {
             found = 1;
-            send->name = malloc(strlen(buffer) + 1);
-            strcpy(send->name, buffer);
+            send->name = buffer;
             send->fd_pos = user_pos;
             buffer = NULL;
             break;
@@ -576,11 +588,9 @@ int bowmanHandler(int sock, int user_pos) {
     }
     else if (frame.type == '3' && strcmp(frame.header, "DOWNLOAD_SONG") == 0) {
         downloadSong(frame.data, user_pos, 0);
-        frame = freeFrame(frame);
     }
     else if (frame.type == '3' && strcmp(frame.header, "DOWNLOAD_LIST") == 0) {
         downloadList(frame.data, user_pos);
-        frame = freeFrame(frame);
     }
     else if (frame.type == '5') {
         checkDownload(frame.header, frame.data, users[user_pos]);
@@ -596,22 +606,22 @@ int bowmanHandler(int sock, int user_pos) {
         free(buffer);
         buffer = NULL;
 
+        frame = freeFrame(frame);
+        
         return -1;
     }
     else if (frame.type == '7') {
         asprintf(&buffer, "%sSent wrong frame\n%s", C_RED, C_RESET);
         print(buffer, &terminal);
         free(buffer);
-        frame = freeFrame(frame);
     }
     else {
         print("Wrong frame\n", &terminal);
         pthread_mutex_lock(&socket_mu);
         sendError(sock);
         pthread_mutex_unlock(&socket_mu);
-        frame = freeFrame(frame);
     }
-
+    frame = freeFrame(frame);
     return 0;
 }
 
@@ -677,9 +687,13 @@ static int listenConnections() {
                     if (bowmanHandler(users_fd[i], i) == -1) {
                         close(users_fd[i]);
                         FD_CLR(users_fd[i], &readfds);
-                        for (int j = i; j < num_users - 1; j++) {
-                            users_fd[j] = users_fd[j + 1];
-                            users[j] = users[j + 1];
+                        for (int j = i; j < num_users; j++) {
+                            free(users[j]);
+                            if (j < num_users - 1) {
+                                users_fd[j] = users_fd[j + 1];
+                                users[j] = users[j + 1];    
+                            }
+                            else users[j] = NULL;
                         }
                         num_users--;
                     }
@@ -705,7 +719,7 @@ static int listenConnections() {
  * @Return: ---.
  *
  *******************************************************************/
-void logout() { // closear download sock
+void logout() {
     char* buffer = NULL;
     Frame frame;
     int disc_sock;
@@ -833,6 +847,7 @@ void monolith() {
         free(buffer);
         SEM_signal(sem);
         SEM_destructor(sem);
+        free(sem);
         return;
     }
 
@@ -857,6 +872,7 @@ void monolith() {
                 close(file_fd);
                 close(poole2mono[0]);
                 SEM_destructor(sem);
+                free(sem);
                 exit(0);
             }
             i++;
@@ -926,6 +942,8 @@ void sig_handler(int sigsum) {
         case SIGINT:
             print("\nAborting...\n", &terminal);
             logout();
+            free(users);
+            free(users_fd);
             free(config.server);
             free(config.path);
             free(config.discovery_ip);
@@ -1037,6 +1055,7 @@ int main(int argc, char *argv[]) {
 
     if (frame.type == '1' && strcmp(frame.header, "CON_OK") == 0) {
         close(disc_sock);
+        frame = freeFrame(frame);
         server = configServer(config.user_ip, config.user_port);
         
         bow_sock = openConnection(server);
@@ -1059,6 +1078,7 @@ int main(int argc, char *argv[]) {
         }
     }
     else {
+        frame = freeFrame(frame);
         asprintf(&buffer, "%sError trying to connect to HAL 9000 system\n%s", C_RED, C_RESET);
         print(buffer, &terminal);
         free(buffer);
